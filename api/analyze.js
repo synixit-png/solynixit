@@ -58,10 +58,10 @@ function buildAnalysis(address, token, security, dex) {
   const mintRevoked = securityAvailable ? (security.mintAuthority === null || security.mintAuthority === '') : null;
   const freezeRevoked = securityAvailable ? (security.freezeAuthority === null || security.freezeAuthority === '') : null;
   const liquidityLocked = securityAvailable ? security.lpLocked > 0.5 : null;
-  const devSoldPct = security?.devSoldPercent ? Math.round(security.devSoldPercent * 100) : 0;
+  const devSoldPct = securityAvailable ? Math.round((security.devSoldPercent || 0) * 100) : null;
   const creatorAddress = security?.creatorAddress || null;
-  const prevRugs = security?.rugged ? 1 : 0;
-  const linkedWallets = security?.relatedAddresses?.length || 0;
+  const prevRugs = securityAvailable ? (security.rugged ? 1 : 0) : null;
+  const linkedWallets = securityAvailable ? (security.relatedAddresses?.length || 0) : null;
   const createdAt = token?.createdAt || dex?.pairCreatedAt;
   const ageMs = createdAt ? Date.now() - createdAt : null;
   const ageHours = ageMs ? Math.floor(ageMs / 3600000) : null;
@@ -73,9 +73,9 @@ function buildAnalysis(address, token, security, dex) {
     { name: 'Freeze authority révoquée', status: freezeRevoked === null ? 'warn' : freezeRevoked ? 'ok' : 'bad', good: 'Personne ne peut bloquer tes tokens.', bad: freezeRevoked === null ? 'Donnée de sécurité indisponible — impossible de vérifier ce signal.' : 'Freeze authority active — le dev peut geler ton wallet.', impact: 'Tu pourrais être bloqué et incapable de vendre.', weight: 12, eliminatory: false },
     { name: 'Distribution des holders', status: holders > 3000 ? 'ok' : holders > 500 ? 'warn' : 'bad', good: holders.toLocaleString('fr') + ' holders — bonne distribution.', bad: holders.toLocaleString('fr') + ' holders seulement — manipulation facile.', impact: 'Peu de holders = prix contrôlé par quelques wallets.', weight: 12, eliminatory: false },
     { name: 'Concentration top 10 wallets', status: top10pct === null ? 'warn' : top10pct < 25 ? 'ok' : top10pct < 50 ? 'warn' : 'bad', good: 'Top 10 = ' + top10pct + '% — bien distribué.', bad: top10pct === null ? 'Données non disponibles.' : 'Top 10 = ' + top10pct + '% — dump massif possible.', impact: "Si ces wallets vendent ensemble, le prix s'effondre.", weight: 14, eliminatory: false },
-    { name: 'Comportement du développeur', status: devSoldPct < 15 ? 'ok' : devSoldPct < 50 ? 'warn' : 'bad', good: 'Dev a vendu ' + devSoldPct + '% — reste engagé.', bad: 'Dev a vendu ' + devSoldPct + '% de sa position — signal de sortie.', impact: "Un dev qui vend massivement n'a plus d'intérêt à développer.", weight: 12, eliminatory: false },
-    { name: 'Historique du créateur', status: prevRugs === 0 ? 'ok' : 'bad', good: 'Aucun rug pull antérieur détecté.', bad: prevRugs + ' rug pull(s) antérieur(s) sur ce wallet.', impact: 'Un serial rugger a 90% de chances de recommencer.', weight: 8, eliminatory: true },
-    { name: 'Coordination de wallets', status: linkedWallets > 3 ? 'bad' : linkedWallets > 1 ? 'warn' : 'ok', good: 'Pas de coordination détectée.', bad: linkedWallets + ' wallets liés — pump & dump possible.', impact: 'Wallets coordonnés = manipulation organisée.', weight: 4, eliminatory: false },
+    { name: 'Comportement du développeur', status: devSoldPct === null ? 'warn' : devSoldPct < 15 ? 'ok' : devSoldPct < 50 ? 'warn' : 'bad', good: 'Dev a vendu ' + devSoldPct + '% — reste engagé.', bad: devSoldPct === null ? 'Donnée de sécurité indisponible — impossible de vérifier ce signal.' : 'Dev a vendu ' + devSoldPct + '% de sa position — signal de sortie.', impact: "Un dev qui vend massivement n'a plus d'intérêt à développer.", weight: 12, eliminatory: false },
+    { name: 'Historique du créateur', status: prevRugs === null ? 'warn' : prevRugs === 0 ? 'ok' : 'bad', good: 'Aucun rug pull antérieur détecté.', bad: prevRugs === null ? 'Donnée de sécurité indisponible — impossible de vérifier ce signal.' : prevRugs + ' rug pull(s) antérieur(s) sur ce wallet.', impact: 'Un serial rugger a 90% de chances de recommencer.', weight: 8, eliminatory: true },
+    { name: 'Coordination de wallets', status: linkedWallets === null ? 'warn' : linkedWallets > 3 ? 'bad' : linkedWallets > 1 ? 'warn' : 'ok', good: 'Pas de coordination détectée.', bad: linkedWallets === null ? 'Donnée de sécurité indisponible — impossible de vérifier ce signal.' : linkedWallets + ' wallets liés — pump & dump possible.', impact: 'Wallets coordonnés = manipulation organisée.', weight: 4, eliminatory: false },
   ];
 
   let score = 0, hasEliminatory = false;
