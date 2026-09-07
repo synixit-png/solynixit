@@ -535,7 +535,7 @@ function render(d) {
   ].map(r => '<div class="drow"><span class="dk">' + r.k + '</span><span class="dv ' + r.c + '">' + r.v + '</span></div>').join('');
   document.getElementById('marketRows').innerHTML = [
     { k: 'Holders', v: d.market.holders.toLocaleString('fr'), c: d.market.holders > 3000 ? 'c' : d.market.holders > 500 ? 'a' : 'r' },
-    { k: 'Top 10 wallets', v: d.market.top10pct + '%', c: d.market.top10pct < 25 ? 'c' : d.market.top10pct < 50 ? 'a' : 'r' },
+    { k: 'Top 10 wallets', v: d.market.top10pct === null ? 'Inconnu' : d.market.top10pct + '%', c: d.market.top10pct === null ? '' : d.market.top10pct < 25 ? 'c' : d.market.top10pct < 50 ? 'a' : 'r' },
     { k: 'Liquidité', v: '$' + d.market.liquidityUsd.toLocaleString('fr'), c: d.market.liquidityUsd > 100000 ? 'c' : d.market.liquidityUsd > 20000 ? 'a' : 'r' },
     { k: 'Volume 24h', v: '$' + d.market.volume24h.toLocaleString('fr'), c: '' },
     { k: 'Market cap', v: '$' + d.market.mcap.toLocaleString('fr'), c: '' },

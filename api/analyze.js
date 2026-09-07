@@ -54,9 +54,10 @@ function buildAnalysis(address, token, security, dex) {
   const volume24h = dex?.volume?.h24 || token?.v24hUSD || 0;
   const mcap = token?.mc || dex?.fdv || 0;
   const top10pct = security?.top10HolderPercent ? Math.round(security.top10HolderPercent * 100) : null;
-  const mintRevoked = security?.mintAuthority === null || security?.mintAuthority === '';
-  const freezeRevoked = security?.freezeAuthority === null || security?.freezeAuthority === '';
-  const liquidityLocked = security?.lpLocked > 0.5 || false;
+  const securityAvailable = security !== null;
+  const mintRevoked = securityAvailable ? (security.mintAuthority === null || security.mintAuthority === '') : null;
+  const freezeRevoked = securityAvailable ? (security.freezeAuthority === null || security.freezeAuthority === '') : null;
+  const liquidityLocked = securityAvailable ? security.lpLocked > 0.5 : null;
   const devSoldPct = security?.devSoldPercent ? Math.round(security.devSoldPercent * 100) : 0;
   const creatorAddress = security?.creatorAddress || null;
   const prevRugs = security?.rugged ? 1 : 0;
@@ -67,9 +68,9 @@ function buildAnalysis(address, token, security, dex) {
   const ageLabel = ageHours === null ? 'Inconnu' : ageHours < 24 ? ageHours + 'h' : ageHours < 720 ? Math.floor(ageHours / 24) + 'j' : Math.floor(ageHours / 720) + ' mois';
 
   const signals = [
-    { name: 'Liquidité lockée', status: liquidityLocked ? 'ok' : 'bad', good: 'Liquidité verrouillée — le dev ne peut pas retirer les fonds.', bad: 'Liquidité NON lockée — rug pull possible à tout moment.', impact: 'Si le dev retire la liquidité, le token vaut 0 en secondes.', weight: 20, eliminatory: true },
-    { name: 'Mint authority révoquée', status: mintRevoked ? 'ok' : 'bad', good: 'Impossible de créer de nouveaux tokens — supply fixe.', bad: "Mint authority active — le dev peut créer des tokens à l'infini.", impact: 'Création illimitée = dilution et destruction de valeur.', weight: 18, eliminatory: true },
-    { name: 'Freeze authority révoquée', status: freezeRevoked ? 'ok' : 'bad', good: 'Personne ne peut bloquer tes tokens.', bad: 'Freeze authority active — le dev peut geler ton wallet.', impact: 'Tu pourrais être bloqué et incapable de vendre.', weight: 12, eliminatory: false },
+    { name: 'Liquidité lockée', status: liquidityLocked === null ? 'warn' : liquidityLocked ? 'ok' : 'bad', good: 'Liquidité verrouillée — le dev ne peut pas retirer les fonds.', bad: liquidityLocked === null ? 'Donnée de sécurité indisponible — impossible de vérifier ce signal.' : 'Liquidité NON lockée — rug pull possible à tout moment.', impact: 'Si le dev retire la liquidité, le token vaut 0 en secondes.', weight: 20, eliminatory: true },
+    { name: 'Mint authority révoquée', status: mintRevoked === null ? 'warn' : mintRevoked ? 'ok' : 'bad', good: 'Impossible de créer de nouveaux tokens — supply fixe.', bad: mintRevoked === null ? 'Donnée de sécurité indisponible — impossible de vérifier ce signal.' : "Mint authority active — le dev peut créer des tokens à l'infini.", impact: 'Création illimitée = dilution et destruction de valeur.', weight: 18, eliminatory: true },
+    { name: 'Freeze authority révoquée', status: freezeRevoked === null ? 'warn' : freezeRevoked ? 'ok' : 'bad', good: 'Personne ne peut bloquer tes tokens.', bad: freezeRevoked === null ? 'Donnée de sécurité indisponible — impossible de vérifier ce signal.' : 'Freeze authority active — le dev peut geler ton wallet.', impact: 'Tu pourrais être bloqué et incapable de vendre.', weight: 12, eliminatory: false },
     { name: 'Distribution des holders', status: holders > 3000 ? 'ok' : holders > 500 ? 'warn' : 'bad', good: holders.toLocaleString('fr') + ' holders — bonne distribution.', bad: holders.toLocaleString('fr') + ' holders seulement — manipulation facile.', impact: 'Peu de holders = prix contrôlé par quelques wallets.', weight: 12, eliminatory: false },
     { name: 'Concentration top 10 wallets', status: top10pct === null ? 'warn' : top10pct < 25 ? 'ok' : top10pct < 50 ? 'warn' : 'bad', good: 'Top 10 = ' + top10pct + '% — bien distribué.', bad: top10pct === null ? 'Données non disponibles.' : 'Top 10 = ' + top10pct + '% — dump massif possible.', impact: "Si ces wallets vendent ensemble, le prix s'effondre.", weight: 14, eliminatory: false },
     { name: 'Comportement du développeur', status: devSoldPct < 15 ? 'ok' : devSoldPct < 50 ? 'warn' : 'bad', good: 'Dev a vendu ' + devSoldPct + '% — reste engagé.', bad: 'Dev a vendu ' + devSoldPct + '% de sa position — signal de sortie.', impact: "Un dev qui vend massivement n'a plus d'intérêt à développer.", weight: 12, eliminatory: false },
@@ -97,7 +98,7 @@ function buildAnalysis(address, token, security, dex) {
   return {
     address, name, symbol, score, signals,
     creator: { address: creatorAddress, prevRugs, prevTokens: linkedWallets, walletAge: ageLabel, devSoldPct, linkedWallets, reputationScore, reputationLabel },
-    market: { holders, top10pct: top10pct ?? '—', liquidityUsd: Math.round(liquidityUsd), volume24h: Math.round(volume24h), mcap: Math.round(mcap), age: ageLabel, liquidityLocked },
+    market: { holders, top10pct, liquidityUsd: Math.round(liquidityUsd), volume24h: Math.round(volume24h), mcap: Math.round(mcap), age: ageLabel, liquidityLocked },
     recommendation: {
       positionSize: score >= 65 ? '2-4% du portfolio' : score >= 40 ? '0.5-1% max' : '0% — ne pas entrer',
       takeProfit: score >= 65 ? '+80 à +200%' : score >= 40 ? '+40 à +80%' : 'Éviter',
