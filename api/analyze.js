@@ -1,9 +1,33 @@
 const BIRDEYE_KEY = process.env.BIRDEYE_API_KEY;
 
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 15;
+const requestLog = new Map();
+
+function getClientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const timestamps = (requestLog.get(ip) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  timestamps.push(now);
+  requestLog.set(ip, timestamps);
+  if (requestLog.size > 5000) requestLog.clear();
+  return timestamps.length > RATE_LIMIT_MAX_REQUESTS;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  if (isRateLimited(getClientIp(req))) {
+    return res.status(429).json({ error: 'Trop de requêtes. Réessaie dans une minute.' });
+  }
   const { address } = req.query;
-  if (!address || address.length < 32) {
+  if (!address || !SOLANA_ADDRESS_RE.test(address)) {
     return res.status(400).json({ error: 'Adresse invalide.' });
   }
   try {

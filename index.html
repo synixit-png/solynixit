@@ -480,7 +480,7 @@ async function analyze() {
   const addr = document.getElementById('addr').value.trim();
   const err = document.getElementById('searchError');
   if (!addr) { err.textContent = 'Entre une adresse de token Solana.'; return; }
-  if (addr.length < 32) { err.textContent = 'Adresse invalide — une adresse Solana fait 32 à 44 caractères.'; return; }
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr)) { err.textContent = 'Adresse invalide — une adresse Solana fait 32 à 44 caractères en base58.'; return; }
   err.textContent = ''; setLoad(true);
   try {
     const res = await fetch('/api/analyze?address=' + encodeURIComponent(addr));
