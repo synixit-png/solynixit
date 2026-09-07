@@ -588,11 +588,33 @@ function genThread() {
 function copyThread() {
   const cards = document.querySelectorAll('.tw');
   const text = Array.from(cards).map((c, i) => '[' + (i + 1) + '] ' + c.textContent.trim()).join('\n\n---\n\n');
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.querySelector('.copy-btn');
+  const btn = document.querySelector('.copy-btn');
+  const showCopied = () => {
     btn.textContent = '✓ Copié !';
     setTimeout(() => btn.textContent = 'Copier tout le thread', 2000);
-  });
+  };
+  const showFailed = () => {
+    btn.textContent = 'Copie impossible — sélectionne le texte manuellement';
+    setTimeout(() => btn.textContent = 'Copier tout le thread', 3000);
+  };
+  const fallbackCopy = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    ok ? showCopied() : showFailed();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(showCopied).catch(fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
 }
 
 document.getElementById('addr').addEventListener('keydown', e => { if (e.key === 'Enter') analyze(); });
