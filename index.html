@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SolanaRisk</title>
+<meta name="description" content="Détecte le rug pull avant qu'il arrive. Entre l'adresse d'un token Solana et obtiens un score de risque basé sur 8 signaux critiques on-chain.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="SolanaRisk — Détecte le rug pull avant qu'il arrive">
+<meta property="og:description" content="Entre l'adresse d'un token Solana. 8 signaux critiques analysés — score de risque, red flags, profil du créateur, recommandation.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="SolanaRisk — Détecte le rug pull avant qu'il arrive">
+<meta name="twitter:description" content="Entre l'adresse d'un token Solana. 8 signaux critiques analysés — score de risque, red flags, profil du créateur, recommandation.">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -30,7 +37,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .live-badge{display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);color:var(--text2)}
 .live-dot{width:6px;height:6px;border-radius:50%;background:#00ff88;box-shadow:0 0 8px #00ff88;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-.scan-count{font-size:11px;font-family:var(--mono);color:var(--text3)}
 
 /* HERO */
 .hero{position:relative;overflow:hidden;min-height:520px;display:flex;align-items:center}
@@ -176,7 +182,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
     </div>
     <div style="display:flex;align-items:center;gap:20px">
       <div class="live-badge"><span class="live-dot"></span>SCAN ACTIF</div>
-      <div class="scan-count" id="scanCount">14,231 analyses</div>
     </div>
   </div>
 </header>
@@ -459,11 +464,6 @@ drawFrame();
 
 // ============ APP LOGIC ============
 let current = null;
-let scanCount = 14231;
-setInterval(() => {
-  scanCount += Math.floor(Math.random() * 3);
-  document.getElementById('scanCount').textContent = scanCount.toLocaleString('fr') + ' analyses';
-}, 4000);
 
 function fillEx(a) { document.getElementById('addr').value = a; document.getElementById('searchError').textContent = ''; }
 
