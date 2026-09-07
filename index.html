@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SolanaRisk</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#05070d;--bg2:#0a0e1a;--bg3:#0f1424;--bg4:#141929;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);
+  --text:#f0f4ff;--text2:#8892aa;--text3:#4a5268;
+  --cyan:#00e5ff;--cyan-bg:rgba(0,229,255,0.06);--cyan-border:rgba(0,229,255,0.18);
+  --red:#ff3d6b;--red-bg:rgba(255,61,107,0.06);--red-border:rgba(255,61,107,0.2);
+  --amber:#ffb020;--amber-bg:rgba(255,176,32,0.06);--amber-border:rgba(255,176,32,0.2);
+  --purple:#9945ff;
+  --mono:'Space Mono',monospace;--sans:'Space Grotesk',sans-serif;
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+
+/* HEADER */
+.header{position:relative;z-index:10;border-bottom:1px solid var(--border);background:rgba(5,7,13,0.9);backdrop-filter:blur(20px)}
+.header-inner{max-width:1100px;margin:0 auto;padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,var(--cyan),#9945ff);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#000;font-family:var(--mono)}
+.logo-name{font-size:15px;font-weight:600;letter-spacing:-0.02em}
+.logo-name span{color:var(--cyan)}
+.live-badge{display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);color:var(--text2)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#00ff88;box-shadow:0 0 8px #00ff88;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.scan-count{font-size:11px;font-family:var(--mono);color:var(--text3)}
+
+/* HERO */
+.hero{position:relative;overflow:hidden;min-height:520px;display:flex;align-items:center}
+.hero-content{position:relative;z-index:2;padding:60px 32px;max-width:1100px;margin:0 auto;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.hero-left{}
+.hero-tag{display:inline-flex;align-items:center;gap:8px;background:var(--cyan-bg);border:1px solid var(--cyan-border);border-radius:20px;padding:4px 14px;font-size:11px;font-family:var(--mono);color:var(--cyan);margin-bottom:24px;letter-spacing:0.04em}
+.hero-title{font-size:clamp(32px,4vw,52px);font-weight:700;line-height:1.1;letter-spacing:-0.04em;margin-bottom:14px}
+.hero-title .dim{color:var(--text2);font-weight:300}
+.hero-sub{font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:32px;max-width:400px}
+
+/* SEARCH */
+.search-wrap{position:relative}
+.search-inner{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border2);border-radius:14px;padding:6px 6px 6px 18px;transition:border-color 0.2s,box-shadow 0.2s;gap:8px}
+.search-inner:focus-within{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,229,255,0.08)}
+.search-input{flex:1;background:none;border:none;outline:none;font-size:13px;font-family:var(--mono);color:var(--text);padding:8px 0}
+.search-input::placeholder{color:var(--text3)}
+.search-btn{background:linear-gradient(135deg,var(--cyan),#0080ff);border:none;border-radius:10px;padding:11px 20px;font-size:13px;font-weight:600;color:#000;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:8px;white-space:nowrap;transition:opacity 0.2s}
+.search-btn:hover{opacity:0.88}
+.search-btn:disabled{opacity:0.4;cursor:not-allowed}
+.search-error{font-size:12px;color:var(--red);min-height:18px;font-family:var(--mono);margin-top:8px}
+.examples{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.ex-label{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.ex-btn{background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;font-family:var(--mono);color:var(--text2);cursor:pointer;transition:all 0.15s}
+.ex-btn:hover{border-color:var(--cyan-border);color:var(--cyan)}
+
+/* CANVAS ECOSYSTEM */
+.hero-right{position:relative;height:420px}
+#ecosystemCanvas{width:100%;height:100%;border-radius:20px}
+
+/* RESULT */
+.result{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 32px 80px;display:none}
+.result-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.result-token{display:flex;align-items:center;gap:12px}
+.token-icon{width:40px;height:40px;border-radius:10px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:18px}
+.token-name{font-size:17px;font-weight:600;letter-spacing:-0.02em}
+.token-addr{font-size:11px;font-family:var(--mono);color:var(--text3);margin-top:2px}
+.back-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;font-family:var(--mono);color:var(--text2);cursor:pointer;transition:all 0.15s}
+.back-btn:hover{border-color:var(--border2);color:var(--text)}
+
+/* SCORE HERO */
+.score-hero{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:36px;margin-bottom:14px;display:grid;grid-template-columns:auto 1fr;gap:48px;align-items:center}
+.score-hero.green{border-color:var(--cyan-border);background:linear-gradient(135deg,var(--bg2),rgba(0,229,255,0.03))}
+.score-hero.amber{border-color:var(--amber-border);background:linear-gradient(135deg,var(--bg2),rgba(255,176,32,0.03))}
+.score-hero.red{border-color:var(--red-border);background:linear-gradient(135deg,var(--bg2),rgba(255,61,107,0.03))}
+.score-num-wrap{text-align:center;min-width:140px}
+.score-num{font-size:88px;font-weight:700;line-height:1;letter-spacing:-0.06em;font-family:var(--mono)}
+.score-hero.green .score-num{color:var(--cyan)}
+.score-hero.amber .score-num{color:var(--amber)}
+.score-hero.red .score-num{color:var(--red)}
+.score-denom{font-size:16px;color:var(--text3);font-family:var(--mono)}
+.score-verdict{font-size:26px;font-weight:700;letter-spacing:-0.03em;margin-bottom:8px}
+.score-hero.green .score-verdict{color:var(--cyan)}
+.score-hero.amber .score-verdict{color:var(--amber)}
+.score-hero.red .score-verdict{color:var(--red)}
+.score-desc{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px;max-width:480px}
+.flag-row{display:flex;gap:8px;flex-wrap:wrap}
+.flag{font-size:11px;font-family:var(--mono);padding:3px 10px;border-radius:20px;border:1px solid}
+.flag.red{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
+.flag.green{background:var(--cyan-bg);border-color:var(--cyan-border);color:var(--cyan)}
+.flag.amber{background:var(--amber-bg);border-color:var(--amber-border);color:var(--amber)}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.grid1{margin-bottom:12px}
+.block{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:22px}
+.block.danger{background:var(--red-bg);border-color:var(--red-border)}
+.block-label{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px}
+.block.danger .block-label{color:var(--red)}
+
+.rf-item{padding:12px 0;border-bottom:1px solid rgba(255,61,107,0.1)}
+.rf-item:last-child{border-bottom:none;padding-bottom:0}
+.rf-item:first-child{padding-top:0}
+.rf-name{font-size:13px;font-weight:600;color:var(--red);margin-bottom:3px}
+.rf-why{font-size:12px;color:rgba(255,61,107,0.65);line-height:1.5;margin-bottom:3px}
+.rf-impact{font-size:11px;font-family:var(--mono);color:rgba(255,61,107,0.4)}
+
+.drow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.drow:last-child{border-bottom:none;padding-bottom:0}
+.drow:first-child{padding-top:0}
+.dk{color:var(--text2)}
+.dv{font-family:var(--mono);font-size:12px;font-weight:500}
+.dv.c{color:var(--cyan)}.dv.r{color:var(--red)}.dv.a{color:var(--amber)}
+
+.rep-wrap{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.rep-label{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px}
+.rep-bar{height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;margin-bottom:6px}
+.rep-fill{height:100%;border-radius:2px;transition:width 0.8s ease}
+.rep-score{font-size:12px;font-family:var(--mono)}
+
+.sig-grid{display:grid;gap:6px}
+.sig{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border-radius:10px;border:1px solid}
+.sig.ok{background:var(--cyan-bg);border-color:var(--cyan-border)}
+.sig.warn{background:var(--amber-bg);border-color:var(--amber-border)}
+.sig.bad{background:var(--red-bg);border-color:var(--red-border)}
+.sig-icon{width:16px;height:16px;flex-shrink:0;margin-top:2px}
+.sig-name{font-size:12px;font-weight:600;margin-bottom:2px}
+.sig.ok .sig-name{color:var(--cyan)}.sig.warn .sig-name{color:var(--amber)}.sig.bad .sig-name{color:var(--red)}
+.sig-desc{font-size:11px;line-height:1.5}
+.sig.ok .sig-desc{color:rgba(0,229,255,0.55)}.sig.warn .sig-desc{color:rgba(255,176,32,0.55)}.sig.bad .sig-desc{color:rgba(255,61,107,0.55)}
+
+.reco-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.rc{background:var(--bg3);border-radius:10px;padding:14px;border:1px solid var(--border)}
+.rc-label{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px}
+.rc-val{font-size:17px;font-weight:700;font-family:var(--mono)}
+.reco-note{font-size:12px;color:var(--text2);line-height:1.7;padding-top:14px;border-top:1px solid var(--border);font-style:italic}
+
+.thread-cta{background:linear-gradient(135deg,rgba(0,229,255,0.05),rgba(153,69,255,0.05));border:1px solid var(--cyan-border);border-radius:16px;padding:26px;text-align:center;margin-bottom:12px}
+.thread-cta-title{font-size:15px;font-weight:600;margin-bottom:6px}
+.thread-cta-sub{font-size:13px;color:var(--text2);margin-bottom:18px}
+.thread-cta-btn{background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:10px;padding:11px 26px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--sans)}
+.thread-out{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:12px;display:none}
+.tw{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:13px 15px;margin-bottom:8px;font-size:12px;line-height:1.7;white-space:pre-wrap;position:relative;color:var(--text)}
+.tw-num{position:absolute;top:10px;right:12px;font-size:10px;font-family:var(--mono);color:var(--text3)}
+.copy-btn{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-family:var(--mono);color:var(--text2);cursor:pointer;width:100%;margin-top:4px;transition:all 0.15s}
+.copy-btn:hover{border-color:var(--border2);color:var(--text)}
+
+.footer{border-top:1px solid var(--border);padding:24px 32px}
+.footer-inner{max-width:1100px;margin:0 auto;display:flex;justify-content:space-between;font-size:11px;font-family:var(--mono);color:var(--text3)}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.result{animation:fadeUp 0.35s ease}
+
+@media(max-width:768px){
+  .hero-content{grid-template-columns:1fr;gap:0}
+  .hero-right{height:280px}
+  .grid2,.reco-cards{grid-template-columns:1fr}
+  .score-hero{grid-template-columns:1fr;gap:20px;text-align:center}
+  .score-num{font-size:64px}
+  .hero{min-height:auto}
+  .hero-content{padding:40px 20px}
+  .result{padding:0 20px 60px}
+  .header-inner{padding:0 20px}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-mark">S</div>
+      <div class="logo-name">Solana<span>Risk</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:20px">
+      <div class="live-badge"><span class="live-dot"></span>SCAN ACTIF</div>
+      <div class="scan-count" id="scanCount">14,231 analyses</div>
+    </div>
+  </div>
+</header>
+
+<section class="hero" id="heroSection">
+  <div class="hero-content">
+    <div class="hero-left">
+      <div class="hero-tag">⬡ Intelligence on-chain Solana</div>
+      <h1 class="hero-title">Détecte le rug pull<br><span class="dim">avant qu'il arrive.</span></h1>
+      <p class="hero-sub">Entre l'adresse d'un token. 8 signaux critiques analysés — score de risque, red flags, profil du créateur, recommandation.</p>
+      <div class="search-wrap">
+        <div class="search-inner">
+          <input type="text" id="addr" class="search-input" placeholder="Adresse du token Solana..." autocomplete="off" spellcheck="false">
+          <button class="search-btn" id="analyzeBtn" onclick="analyze()">
+            <span id="btnText">Analyser</span>
+            <svg id="btnSpinner" width="14" height="14" viewBox="0 0 16 16" fill="none" style="display:none;animation:spin 0.8s linear infinite"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="10" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="search-error" id="searchError"></div>
+        <div class="examples">
+          <span class="ex-label">Exemples :</span>
+          <button class="ex-btn" onclick="fillEx('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')">USDC</button>
+          <button class="ex-btn" onclick="fillEx('So11111111111111111111111111111111111111112')">SOL</button>
+          <button class="ex-btn" onclick="fillEx('DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263')">BONK</button>
+        </div>
+      </div>
+    </div>
+    <div class="hero-right">
+      <canvas id="ecosystemCanvas"></canvas>
+    </div>
+  </div>
+</section>
+
+<section class="result" id="resultSection">
+  <div class="result-top">
+    <div class="result-token">
+      <div class="token-icon" id="tokenIcon">🪙</div>
+      <div>
+        <div class="token-name" id="tokenName">—</div>
+        <div class="token-addr" id="tokenAddr">—</div>
+      </div>
+    </div>
+    <button class="back-btn" onclick="goBack()">← Nouvelle analyse</button>
+  </div>
+  <div class="score-hero" id="scoreBanner">
+    <div class="score-num-wrap">
+      <div class="score-num" id="scoreNum">--</div>
+      <div class="score-denom">/100</div>
+    </div>
+    <div>
+      <div class="score-verdict" id="scoreVerdict">—</div>
+      <div class="score-desc" id="scoreDesc">—</div>
+      <div class="flag-row" id="flagRow"></div>
+    </div>
+  </div>
+  <div class="block danger grid1" id="rfBlock" style="display:none">
+    <div class="block-label">⚠ Signaux critiques</div>
+    <div id="rfList"></div>
+  </div>
+  <div class="grid2">
+    <div class="block">
+      <div class="block-label">Profil du créateur</div>
+      <div id="creatorRows"></div>
+      <div class="rep-wrap">
+        <div class="rep-label">Réputation wallet</div>
+        <div class="rep-bar"><div class="rep-fill" id="repFill"></div></div>
+        <div class="rep-score" id="repScore"></div>
+      </div>
+    </div>
+    <div class="block">
+      <div class="block-label">Données marché</div>
+      <div id="marketRows"></div>
+    </div>
+  </div>
+  <div class="block grid1">
+    <div class="block-label">Analyse des 8 signaux</div>
+    <div class="sig-grid" id="sigGrid"></div>
+  </div>
+  <div class="block grid1">
+    <div class="block-label">Recommandation</div>
+    <div class="reco-cards" id="recoCards"></div>
+    <div class="reco-note" id="recoNote"></div>
+  </div>
+  <div class="thread-cta">
+    <div class="thread-cta-title">Génère ton thread X depuis cette analyse</div>
+    <div class="thread-cta-sub">Thread formaté, prêt à copier-coller sur X/Twitter.</div>
+    <button class="thread-cta-btn" onclick="genThread()">Générer le thread ↗</button>
+  </div>
+  <div class="thread-out" id="threadOut">
+    <div class="block-label">Thread X — prêt à copier</div>
+    <div id="threadTweets"></div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span>SolanaRisk — Intelligence on-chain</span>
+    <span>Pas un conseil financier. DYOR.</span>
+  </div>
+</footer>
+
+<script>
+// ============ ECOSYSTEM ANIMATION ============
+const canvas = document.getElementById('ecosystemCanvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  canvas.width = r.width * devicePixelRatio;
+  canvas.height = r.height * devicePixelRatio;
+  canvas.style.width = r.width + 'px';
+  canvas.style.height = r.height + 'px';
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const W = () => canvas.width / devicePixelRatio;
+const H = () => canvas.height / devicePixelRatio;
+
+const tokens = [
+  { name: 'SOL', color: '#9945ff', size: 28, orbit: 0, radius: 0, angle: 0, speed: 0 },
+  { name: 'BONK', color: '#ff6b35', size: 16, orbit: 1, radius: 90, angle: 0, speed: 0.008 },
+  { name: 'WIF', color: '#00e5ff', size: 14, orbit: 1, radius: 90, angle: 2.1, speed: 0.008 },
+  { name: 'POPCAT', color: '#ff3d6b', size: 12, orbit: 1, radius: 90, angle: 4.2, speed: 0.008 },
+  { name: 'JUP', color: '#00ff88', size: 15, orbit: 2, radius: 150, angle: 0, speed: 0.005 },
+  { name: 'PYTH', color: '#ffb020', size: 13, orbit: 2, radius: 150, angle: 1.5, speed: 0.005 },
+  { name: 'RAY', color: '#7b61ff', size: 12, orbit: 2, radius: 150, angle: 3, speed: 0.005 },
+  { name: 'ORCA', color: '#00d4ff', size: 11, orbit: 2, radius: 150, angle: 4.5, speed: 0.005 },
+  { name: 'MEME', color: '#ff4488', size: 10, orbit: 3, radius: 200, angle: 0, speed: 0.003 },
+  { name: 'BOME', color: '#88ff44', size: 9, orbit: 3, radius: 200, angle: 1.2, speed: 0.003 },
+  { name: 'SLERF', color: '#ff8844', size: 9, orbit: 3, radius: 200, angle: 2.4, speed: 0.003 },
+  { name: 'BOOK', color: '#44ffdd', size: 8, orbit: 3, radius: 200, angle: 3.6, speed: 0.003 },
+  { name: 'GME', color: '#ddff44', size: 8, orbit: 3, radius: 200, angle: 4.8, speed: 0.003 },
+];
+
+const particles = Array.from({length: 60}, () => ({
+  x: Math.random(),
+  y: Math.random(),
+  size: Math.random() * 1.5 + 0.3,
+  speed: Math.random() * 0.3 + 0.1,
+  opacity: Math.random() * 0.4 + 0.1,
+  color: ['#9945ff','#00e5ff','#ff3d6b','#00ff88'][Math.floor(Math.random()*4)]
+}));
+
+let time = 0;
+const connections = [];
+for(let i = 1; i < tokens.length; i++) {
+  if(Math.random() > 0.5) connections.push([0, i]);
+  if(i > 1 && Math.random() > 0.6) connections.push([i-1, i]);
+}
+
+function getPos(t) {
+  const cx = W() / 2, cy = H() / 2;
+  if(t.orbit === 0) return { x: cx, y: cy };
+  return {
+    x: cx + Math.cos(t.angle) * t.radius,
+    y: cy + Math.sin(t.angle) * t.radius
+  };
+}
+
+function drawFrame() {
+  ctx.clearRect(0, 0, W(), H());
+
+  // fond dégradé
+  const grad = ctx.createRadialGradient(W()/2, H()/2, 0, W()/2, H()/2, Math.max(W(),H())*0.7);
+  grad.addColorStop(0, 'rgba(153,69,255,0.06)');
+  grad.addColorStop(0.5, 'rgba(0,229,255,0.03)');
+  grad.addColorStop(1, 'rgba(5,7,13,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W(), H());
+
+  // particules flottantes
+  particles.forEach(p => {
+    p.y -= p.speed * 0.003;
+    if(p.y < 0) p.y = 1;
+    ctx.beginPath();
+    ctx.arc(p.x * W(), p.y * H(), p.size, 0, Math.PI*2);
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.opacity * (0.6 + 0.4 * Math.sin(time * 0.02 + p.x * 10));
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+
+  // orbites
+  [90, 150, 200].forEach((r, i) => {
+    ctx.beginPath();
+    ctx.arc(W()/2, H()/2, r, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(255,255,255,${0.04 - i * 0.01})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 8]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // mise à jour des angles
+  tokens.forEach(t => { t.angle += t.speed; });
+
+  // connexions
+  connections.forEach(([a, b]) => {
+    const pa = getPos(tokens[a]), pb = getPos(tokens[b]);
+    const dist = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+    const pulse = 0.3 + 0.2 * Math.sin(time * 0.05 + a + b);
+    const lg = ctx.createLinearGradient(pa.x, pa.y, pb.x, pb.y);
+    lg.addColorStop(0, tokens[a].color + '44');
+    lg.addColorStop(0.5, 'rgba(255,255,255,' + (pulse * 0.3) + ')');
+    lg.addColorStop(1, tokens[b].color + '44');
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.strokeStyle = lg;
+    ctx.lineWidth = 0.8;
+    ctx.globalAlpha = pulse;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // particule qui se déplace sur la connexion
+    const t2 = (time * 0.02 + a * 0.5) % 1;
+    const px = pa.x + (pb.x - pa.x) * t2;
+    const py = pa.y + (pb.y - pa.y) * t2;
+    ctx.beginPath();
+    ctx.arc(px, py, 2, 0, Math.PI*2);
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.6 * pulse;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+
+  // tokens
+  tokens.forEach((t, i) => {
+    const pos = getPos(t);
+    const glow = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, t.size * 3);
+    glow.addColorStop(0, t.color + '33');
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, t.size * 3, 0, Math.PI*2);
+    ctx.fill();
+
+    // cercle token
+    const pulse = 1 + 0.08 * Math.sin(time * 0.06 + i);
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, t.size * pulse, 0, Math.PI*2);
+    const tg = ctx.createRadialGradient(pos.x - t.size*0.3, pos.y - t.size*0.3, 0, pos.x, pos.y, t.size * pulse);
+    tg.addColorStop(0, t.color + 'ff');
+    tg.addColorStop(1, t.color + '88');
+    ctx.fillStyle = tg;
+    ctx.fill();
+
+    // bordure
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, t.size * pulse, 0, Math.PI*2);
+    ctx.strokeStyle = t.color + 'aa';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // label
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.max(8, t.size * 0.55)}px Space Mono, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(t.name.slice(0, 4), pos.x, pos.y);
+  });
+
+  // SOL centre — halo spécial
+  const cx = W()/2, cy = H()/2;
+  const solPulse = 1 + 0.12 * Math.sin(time * 0.04);
+  const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, 80 * solPulse);
+  halo.addColorStop(0, 'rgba(153,69,255,0.15)');
+  halo.addColorStop(1, 'transparent');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 80 * solPulse, 0, Math.PI*2);
+  ctx.fill();
+
+  time++;
+  requestAnimationFrame(drawFrame);
+}
+drawFrame();
+
+// ============ APP LOGIC ============
+let current = null;
+let scanCount = 14231;
+setInterval(() => {
+  scanCount += Math.floor(Math.random() * 3);
+  document.getElementById('scanCount').textContent = scanCount.toLocaleString('fr') + ' analyses';
+}, 4000);
+
+function fillEx(a) { document.getElementById('addr').value = a; document.getElementById('searchError').textContent = ''; }
+
+function goBack() {
+  document.getElementById('resultSection').style.display = 'none';
+  document.getElementById('heroSection').style.display = 'block';
+  document.getElementById('addr').value = '';
+  document.getElementById('threadOut').style.display = 'none';
+  current = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function analyze() {
+  const addr = document.getElementById('addr').value.trim();
+  const err = document.getElementById('searchError');
+  if (!addr) { err.textContent = 'Entre une adresse de token Solana.'; return; }
+  if (addr.length < 32) { err.textContent = 'Adresse invalide — une adresse Solana fait 32 à 44 caractères.'; return; }
+  err.textContent = ''; setLoad(true);
+  try {
+    const res = await fetch('/api/analyze?address=' + encodeURIComponent(addr));
+    const data = await res.json();
+    if (data.error) { err.textContent = data.error; setLoad(false); return; }
+    current = data; render(data);
+  } catch (e) { err.textContent = 'Erreur réseau — vérifie ta connexion.'; }
+  setLoad(false);
+}
+
+function setLoad(l) {
+  document.getElementById('analyzeBtn').disabled = l;
+  document.getElementById('btnText').textContent = l ? 'Analyse...' : 'Analyser';
+  document.getElementById('btnSpinner').style.display = l ? 'block' : 'none';
+}
+
+function render(d) {
+  const s = d.score;
+  const cls = s >= 65 ? 'green' : s >= 40 ? 'amber' : 'red';
+  document.getElementById('tokenName').textContent = d.name ? d.name + (d.symbol ? ' (' + d.symbol + ')' : '') : 'Token Solana';
+  document.getElementById('tokenAddr').textContent = d.address.slice(0, 16) + '...' + d.address.slice(-8);
+  document.getElementById('tokenIcon').textContent = s >= 65 ? '🟢' : s >= 40 ? '🟡' : '🔴';
+  const banner = document.getElementById('scoreBanner');
+  banner.className = 'score-hero ' + cls;
+  document.getElementById('scoreNum').textContent = s;
+  document.getElementById('scoreVerdict').textContent = s >= 65 ? 'Risque faible' : s >= 40 ? 'Risque modéré' : 'Danger — Risque élevé';
+  document.getElementById('scoreDesc').textContent = s >= 65 ? 'Les signaux principaux sont positifs. Reste vigilant et gère ta taille de position.' : s >= 40 ? 'Plusieurs signaux ambigus. Limite ton exposition et place un stop loss strict.' : 'Signaux critiques détectés. Fort risque de rug pull ou manipulation.';
+  const rf = d.signals.filter(x => x.status === 'bad');
+  const ok = d.signals.filter(x => x.status === 'ok');
+  document.getElementById('flagRow').innerHTML = [
+    ...rf.slice(0, 3).map(f => '<span class="flag red">⚠ ' + f.name + '</span>'),
+    ...ok.slice(0, 2).map(f => '<span class="flag green">✓ ' + f.name + '</span>')
+  ].join('');
+  const rfBlock = document.getElementById('rfBlock');
+  if (rf.length > 0) {
+    rfBlock.style.display = 'block';
+    document.getElementById('rfList').innerHTML = rf.slice(0, 3).map(f =>
+      '<div class="rf-item"><div class="rf-name">✕ ' + f.name + '</div><div class="rf-why">' + f.bad + '</div><div class="rf-impact">→ ' + f.impact + '</div></div>'
+    ).join('');
+  } else { rfBlock.style.display = 'none'; }
+  const rep = d.creator.reputationScore;
+  const rc = rep >= 65 ? 'var(--cyan)' : rep >= 40 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('repFill').style.cssText = 'width:' + rep + '%;background:' + rc;
+  document.getElementById('repScore').style.color = rc;
+  document.getElementById('repScore').textContent = rep + '/100 — ' + d.creator.reputationLabel;
+  document.getElementById('creatorRows').innerHTML = [
+    { k: 'Rugs antérieurs', v: d.creator.prevRugs === 0 ? 'Aucun' : d.creator.prevRugs + ' détecté(s)', c: d.creator.prevRugs > 0 ? 'r' : 'c' },
+    { k: 'Tokens lancés', v: d.creator.prevTokens, c: '' },
+    { k: 'Âge du wallet', v: d.creator.walletAge, c: '' },
+    { k: 'Dev a vendu', v: d.creator.devSoldPct + '%', c: d.creator.devSoldPct > 50 ? 'r' : d.creator.devSoldPct > 20 ? 'a' : 'c' },
+    { k: 'Wallets liés', v: d.creator.linkedWallets + ' détecté(s)', c: d.creator.linkedWallets > 2 ? 'r' : '' },
+  ].map(r => '<div class="drow"><span class="dk">' + r.k + '</span><span class="dv ' + r.c + '">' + r.v + '</span></div>').join('');
+  document.getElementById('marketRows').innerHTML = [
+    { k: 'Holders', v: d.market.holders.toLocaleString('fr'), c: d.market.holders > 3000 ? 'c' : d.market.holders > 500 ? 'a' : 'r' },
+    { k: 'Top 10 wallets', v: d.market.top10pct + '%', c: d.market.top10pct < 25 ? 'c' : d.market.top10pct < 50 ? 'a' : 'r' },
+    { k: 'Liquidité', v: '$' + d.market.liquidityUsd.toLocaleString('fr'), c: d.market.liquidityUsd > 100000 ? 'c' : d.market.liquidityUsd > 20000 ? 'a' : 'r' },
+    { k: 'Volume 24h', v: '$' + d.market.volume24h.toLocaleString('fr'), c: '' },
+    { k: 'Market cap', v: '$' + d.market.mcap.toLocaleString('fr'), c: '' },
+    { k: 'Âge du token', v: d.market.age, c: '' },
+  ].map(r => '<div class="drow"><span class="dk">' + r.k + '</span><span class="dv ' + r.c + '">' + r.v + '</span></div>').join('');
+  const iOk = '<svg class="sig-icon" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+  const iWarn = '<svg class="sig-icon" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>';
+  const iBad = '<svg class="sig-icon" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  document.getElementById('sigGrid').innerHTML = d.signals.map(sig =>
+    '<div class="sig ' + sig.status + '">' + (sig.status === 'ok' ? iOk : sig.status === 'warn' ? iWarn : iBad) + '<div><div class="sig-name">' + sig.name + '</div><div class="sig-desc">' + (sig.status === 'ok' ? sig.good : sig.bad) + '</div></div></div>'
+  ).join('');
+  const reco = d.recommendation;
+  document.getElementById('recoCards').innerHTML = [
+    { l: 'Position max', v: reco.positionSize, col: s >= 65 ? 'var(--cyan)' : s >= 40 ? 'var(--amber)' : 'var(--red)' },
+    { l: 'Take profit', v: reco.takeProfit, col: 'var(--cyan)' },
+    { l: 'Stop loss', v: reco.stopLoss, col: 'var(--red)' },
+    { l: 'Signaux rouges', v: rf.length === 0 ? 'Aucun' : rf.length + ' critiques', col: rf.length === 0 ? 'var(--cyan)' : 'var(--red)' },
+  ].map(r => '<div class="rc"><div class="rc-label">' + r.l + '</div><div class="rc-val" style="color:' + r.col + '">' + r.v + '</div></div>').join('');
+  document.getElementById('recoNote').textContent = reco.note;
+  document.getElementById('heroSection').style.display = 'none';
+  document.getElementById('resultSection').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function genThread() {
+  if (!current) return;
+  const d = current, s = d.score, rf = d.signals.filter(x => x.status === 'bad');
+  const name = d.name || 'ce token', sym = d.symbol ? '$' + d.symbol : '';
+  const tweets = [
+    "J'ai analysé " + name + " " + sym + " avec mon scanner on-chain.\n\nScore de risque : " + s + "/100\n" + (rf.length > 0 ? rf.length + " signaux critiques ⚠" : "Signaux positifs ✅") + "\n\nVoici ce que j'ai trouvé 🧵",
+    rf.length > 0 ? "🚨 Signal critique #1 : " + rf[0].name + "\n\n" + rf[0].bad + "\n\n→ " + rf[0].impact : "✅ " + d.signals.filter(x => x.status === 'ok')[0]?.name + "\n\n" + d.signals.filter(x => x.status === 'ok')[0]?.good,
+    rf.length > 1 ? "🚨 Signal critique #2 : " + rf[1].name + "\n\n" + rf[1].bad + "\n\n→ " + rf[1].impact : "📊 " + d.market.holders.toLocaleString('fr') + " holders\nTop 10 = " + d.market.top10pct + "%\n\n" + (d.market.top10pct < 25 ? "Bien distribué ✅" : "Concentration élevée ⚠"),
+    "📋 Créateur\n\nRugs : " + (d.creator.prevRugs === 0 ? "Aucun ✅" : d.creator.prevRugs + " 🚨") + "\nDev vendu : " + d.creator.devSoldPct + "%\nRéputation : " + d.creator.reputationScore + "/100",
+    "💧 Marché\n\nLiquidité : $" + d.market.liquidityUsd.toLocaleString('fr') + "\nMcap : $" + d.market.mcap.toLocaleString('fr') + "\nVolume 24h : $" + d.market.volume24h.toLocaleString('fr'),
+    "📊 Verdict\n\nScore : " + s + "/100 — " + (s >= 65 ? "Risque faible" : s >= 40 ? "Risque modéré" : "Danger") + "\nPosition max : " + d.recommendation.positionSize,
+    "Ma checklist :\n\n✅ Liquidité lockée ?\n✅ Mint authority révoquée ?\n✅ Top 10 < 25% ?\n✅ Créateur propre ?\n✅ Dev n'a pas massivement vendu ?\n\nSi une case manque — je n'entre pas.",
+    "Suis-moi pour ne plus te faire ruger.\n\nTu aurais acheté " + (sym || "ce token") + " ? 👇"
+  ];
+  document.getElementById('threadTweets').innerHTML = tweets.map((t, i) =>
+    '<div class="tw"><span class="tw-num">' + (i + 1) + '/' + tweets.length + '</span>' + t + '</div>'
+  ).join('') + '<button class="copy-btn" onclick="copyThread()">Copier tout le thread</button>';
+  document.getElementById('threadOut').style.display = 'block';
+  document.getElementById('threadOut').scrollIntoView({ behavior: 'smooth' });
+}
+
+function copyThread() {
+  const cards = document.querySelectorAll('.tw');
+  const text = Array.from(cards).map((c, i) => '[' + (i + 1) + '] ' + c.textContent.trim()).join('\n\n---\n\n');
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✓ Copié !';
+    setTimeout(() => btn.textContent = 'Copier tout le thread', 2000);
+  });
+}
+
+document.getElementById('addr').addEventListener('keydown', e => { if (e.key === 'Enter') analyze(); });
+</script>
+</body>
+</html>
