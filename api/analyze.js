@@ -39,6 +39,9 @@ export default async function handler(req, res) {
     const token = tokenData.status === 'fulfilled' ? tokenData.value : null;
     const security = securityData.status === 'fulfilled' ? securityData.value : null;
     const dex = marketData.status === 'fulfilled' ? marketData.value : null;
+    if (!token && !security && !dex) {
+      return res.status(404).json({ error: 'Token introuvable — vérifie l\'adresse ou réessaie plus tard.' });
+    }
     return res.status(200).json(buildAnalysis(address, token, security, dex));
   } catch (err) {
     return res.status(500).json({ error: "Erreur lors de l'analyse. Réessaie." });
