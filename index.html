@@ -539,8 +539,14 @@ function render(d) {
   confEl.textContent = 'Confiance : ' + d.confidence + '/100';
   confEl.className = 'score-confidence' + (d.confidence < 50 ? ' low' : '');
   document.getElementById('scoreVerdict').textContent = s >= 65 ? 'Risque faible' : s >= 40 ? 'Risque modéré' : 'Danger — Risque élevé';
+  const priceCrashedNow = typeof d.priceChange1h === 'number' && d.priceChange1h <= -50;
+  const liquidityGone = d.market.liquidityUsd > 0 && d.market.liquidityUsd < 2000;
   document.getElementById('scoreDesc').textContent = d.crashCapped
-    ? '🔴 Le prix a déjà chuté de ' + Math.abs(d.priceChange1h) + '% sur la dernière heure — un dump est probablement déjà en cours, quels que soient les autres signaux. Ce n\'est plus une prédiction, c\'est déjà arrivé.'
+    ? (priceCrashedNow
+        ? '🔴 Le prix a déjà chuté de ' + Math.abs(d.priceChange1h) + '% sur la dernière heure — un dump est probablement déjà en cours, quels que soient les autres signaux. Ce n\'est plus une prédiction, c\'est déjà arrivé.'
+        : liquidityGone
+        ? '🔴 La pool ne contient que $' + d.market.liquidityUsd.toLocaleString('fr') + ' — même "lockée", il n\'y a quasiment plus rien à protéger. La liquidité a déjà été vidée.'
+        : '🔴 Signal critique confirmé — score plafonné par prudence, quels que soient les autres signaux.')
     : d.ageCapped
     ? '⏱ Token trop récent (' + (d.ageHours < 1 ? 'moins d\'1h' : d.ageHours + 'h') + ') pour être jugé fiable, quels que soient ses autres signaux — la fenêtre de pump & dump la plus dangereuse n\'est pas encore passée. Score plafonné par prudence.'
     : s >= 65 ? 'Les signaux principaux sont positifs. Reste vigilant et gère ta taille de position.' : s >= 40 ? 'Plusieurs signaux ambigus. Limite ton exposition et place un stop loss strict.' : 'Signaux critiques détectés. Fort risque de rug pull ou manipulation.';
@@ -598,7 +604,12 @@ function render(d) {
   const capNotes = [];
   if (d.scoreCapped) capNotes.push('plafonné à 35 (signal éliminatoire négatif détecté)');
   if (d.ageCapped) capNotes.push('plafonné car le token est trop récent (' + (d.ageHours < 1 ? 'moins d\'1h' : d.ageHours + 'h') + ')');
-  if (d.crashCapped) capNotes.push('plafonné à 10 (chute de prix de ' + Math.abs(d.priceChange1h) + '% déjà en cours)');
+  if (d.crashCapped) {
+    const reason = (typeof d.priceChange1h === 'number' && d.priceChange1h <= -50) ? 'chute de prix de ' + Math.abs(d.priceChange1h) + '% déjà en cours'
+      : (d.market.liquidityUsd > 0 && d.market.liquidityUsd < 2000) ? 'liquidité déjà vidée ($' + d.market.liquidityUsd.toLocaleString('fr') + ')'
+      : 'signal critique confirmé';
+    capNotes.push('plafonné à 10 (' + reason + ')');
+  }
   document.getElementById('explainFormula').textContent = 'Score = somme des points gagnés ÷ ' + knownWeight + ' (poids des signaux connus) × 100' + (capNotes.length ? ' — puis ' + capNotes.join(' et ') + '.' : '.');
   const reco = d.recommendation;
   document.getElementById('recoCards').innerHTML = [

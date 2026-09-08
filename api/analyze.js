@@ -139,7 +139,11 @@ function buildAnalysis(address, token, security, dex, insiders) {
   const primaryMarket = securityAvailable && Array.isArray(security.markets) ? security.markets[0] : null;
   const lpLockedPctRaw = primaryMarket?.lp?.lpLockedPct;
   const lpLockedPct = typeof lpLockedPctRaw === 'number' ? Math.round(lpLockedPctRaw) : null;
-  const liquidityLocked = lpLockedPct === null ? null : lpLockedPct >= 50;
+  // A lock percentage is meaningless if there's nothing left to lock — 100%
+  // of a $7 pool is still $7. Treat a near-empty pool as unsafe regardless of
+  // the lock %, so a drained liquidity pool can't hide behind "100% locked".
+  const liquidityTooThin = liquidityUsd > 0 && liquidityUsd < 2000;
+  const liquidityLocked = lpLockedPct === null ? null : liquidityTooThin ? false : lpLockedPct >= 50;
   const linkedWallets = countLinkedWallets(insiders);
   // "% already sold" isn't exposed by RugCheck's report, but the more
   // actionable question — can the dev still crash the price by dumping — is
@@ -196,7 +200,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
   // simply don't have at all (known=false). Only known signals count toward
   // the score and toward confidence — an unknown never buys partial credit.
   const signals = [
-    { name: 'Liquidité lockée', known: liquidityLocked !== null, status: liquidityLocked === null ? 'warn' : liquidityLocked ? 'ok' : 'bad', good: 'Liquidité lockée à ' + lpLockedPct + '% — le dev ne peut pas retirer les fonds facilement.', bad: liquidityLocked === null ? notTrackedMsg : 'Liquidité lockée à seulement ' + lpLockedPct + '% — rug pull possible à tout moment.', impact: 'Si le dev retire la liquidité, le token vaut 0 en secondes.', weight: 20, eliminatory: true },
+    { name: 'Liquidité lockée', known: liquidityLocked !== null, status: liquidityLocked === null ? 'warn' : liquidityLocked ? 'ok' : 'bad', good: 'Liquidité lockée à ' + lpLockedPct + '% — le dev ne peut pas retirer les fonds facilement.', bad: liquidityLocked === null ? notTrackedMsg : liquidityTooThin ? 'Lockée à ' + lpLockedPct + '%, mais la pool ne contient que $' + Math.round(liquidityUsd).toLocaleString('fr') + ' — verrouiller un montant quasi nul ne protège de rien.' : 'Liquidité lockée à seulement ' + lpLockedPct + '% — rug pull possible à tout moment.', impact: 'Si le dev retire la liquidité, le token vaut 0 en secondes.', weight: 20, eliminatory: true },
     { name: 'Mint authority révoquée', known: mintRevoked !== null, status: mintRevoked === null ? 'warn' : mintRevoked ? 'ok' : 'bad', good: 'Impossible de créer de nouveaux tokens — supply fixe.', bad: mintRevoked === null ? fetchFailedMsg : "Mint authority active — le dev peut créer des tokens à l'infini.", impact: 'Création illimitée = dilution et destruction de valeur.', weight: 18, eliminatory: true },
     { name: 'Freeze authority révoquée', known: freezeRevoked !== null, status: freezeRevoked === null ? 'warn' : freezeRevoked ? 'ok' : 'bad', good: 'Personne ne peut bloquer tes tokens.', bad: freezeRevoked === null ? fetchFailedMsg : 'Freeze authority active — le dev peut geler ton wallet.', impact: 'Tu pourrais être bloqué et incapable de vendre.', weight: 12, eliminatory: false },
     { name: 'Distribution des holders', known: true, status: holderStatus, good: holders.toLocaleString('fr') + ' holders' + holderAgeNote + ' — bonne distribution pour son âge.', bad: holders.toLocaleString('fr') + ' holders seulement' + holderAgeNote + ' — manipulation facile.', impact: 'Peu de holders = prix contrôlé par quelques wallets.', weight: 12, eliminatory: false },
@@ -236,8 +240,9 @@ function buildAnalysis(address, token, security, dex, insiders) {
   if (ageCap !== null) score = Math.min(score, ageCap);
   // A confirmed ongoing crash outweighs every structural check — this isn't a
   // risk prediction anymore, it's an already-observed outcome. A locked LP
-  // and revoked authorities don't matter if the price already collapsed.
-  const crashCap = priceCrashed ? 10 : null;
+  // and revoked authorities don't matter if the price already collapsed, and
+  // a near-empty pool (however "locked") means the money is already gone.
+  const crashCap = (priceCrashed || liquidityTooThin) ? 10 : null;
   const crashCapped = crashCap !== null && score > crashCap;
   if (crashCap !== null) score = Math.min(score, crashCap);
   score = Math.round(Math.max(0, Math.min(100, score)));
