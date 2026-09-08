@@ -23,6 +23,10 @@ function isRateLimited(ip) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  // Every analysis must hit the upstream APIs fresh — never serve a stale
+  // cached result for a live risk score. Nothing here caches internally, but
+  // this explicitly stops Vercel's edge/CDN from doing it on our behalf.
+  res.setHeader('Cache-Control', 'no-store');
   if (isRateLimited(getClientIp(req))) {
     return res.status(429).json({ error: 'Trop de requêtes. Réessaie dans une minute.' });
   }
@@ -52,7 +56,8 @@ export default async function handler(req, res) {
 
 async function fetchTokenOverview(address) {
   const r = await fetch(`https://public-api.birdeye.so/defi/token_overview?address=${address}`, {
-    headers: { 'X-API-KEY': BIRDEYE_KEY, 'x-chain': 'solana' }
+    headers: { 'X-API-KEY': BIRDEYE_KEY, 'x-chain': 'solana' },
+    cache: 'no-store'
   });
   if (!r.ok) return null;
   const j = await r.json();
@@ -64,7 +69,7 @@ async function fetchTokenOverview(address) {
 // token_security endpoint, which requires a paid plan tier we don't have.
 async function fetchRugCheck(address) {
   try {
-    const r = await fetch(`https://api.rugcheck.xyz/v1/tokens/${address}/report`);
+    const r = await fetch(`https://api.rugcheck.xyz/v1/tokens/${address}/report`, { cache: 'no-store' });
     if (!r.ok) {
       const body = await r.text().catch(() => '');
       console.error('RugCheck error', r.status, body.slice(0, 300));
@@ -84,7 +89,7 @@ async function fetchRugCheck(address) {
 // unrecognized shape just falls back to "not tracked", never a wrong count.
 async function fetchInsiders(address) {
   try {
-    const r = await fetch(`https://api.rugcheck.xyz/v1/tokens/${address}/insiders/graph`);
+    const r = await fetch(`https://api.rugcheck.xyz/v1/tokens/${address}/insiders/graph`, { cache: 'no-store' });
     if (!r.ok) {
       console.error('RugCheck insiders error', r.status);
       return null;
@@ -98,7 +103,7 @@ async function fetchInsiders(address) {
 }
 
 async function fetchDexScreener(address) {
-  const r = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`);
+  const r = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`, { cache: 'no-store' });
   if (!r.ok) return null;
   const j = await r.json();
   return j.pairs?.[0] || null;
