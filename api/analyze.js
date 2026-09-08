@@ -152,6 +152,14 @@ function buildAnalysis(address, token, security, dex, insiders) {
   const creatorHoldingPct = creatorHolder ? Math.round(Number(creatorHolder.pct) || 0) : null;
   const devSoldPct = null;
 
+  // Locked liquidity and revoked authorities describe what CAN'T happen
+  // structurally — they say nothing about whether a dump has already
+  // happened. A handful of concentrated holders can crash the price by
+  // selling directly, no LP pull required. DexScreener's priceChange is
+  // real, already-occurred market behavior, not a structural prediction.
+  const priceChange1h = typeof dex?.priceChange?.h1 === 'number' ? dex.priceChange.h1 : null;
+  const priceCrashed = priceChange1h !== null ? priceChange1h <= -50 : null;
+
   const createdAt = token?.createdAt || dex?.pairCreatedAt;
   const ageMs = createdAt ? Date.now() - createdAt : null;
   const ageHours = ageMs ? Math.floor(ageMs / 3600000) : null;
@@ -193,6 +201,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
     { name: 'Freeze authority révoquée', known: freezeRevoked !== null, status: freezeRevoked === null ? 'warn' : freezeRevoked ? 'ok' : 'bad', good: 'Personne ne peut bloquer tes tokens.', bad: freezeRevoked === null ? fetchFailedMsg : 'Freeze authority active — le dev peut geler ton wallet.', impact: 'Tu pourrais être bloqué et incapable de vendre.', weight: 12, eliminatory: false },
     { name: 'Distribution des holders', known: true, status: holderStatus, good: holders.toLocaleString('fr') + ' holders' + holderAgeNote + ' — bonne distribution pour son âge.', bad: holders.toLocaleString('fr') + ' holders seulement' + holderAgeNote + ' — manipulation facile.', impact: 'Peu de holders = prix contrôlé par quelques wallets.', weight: 12, eliminatory: false },
     { name: 'Concentration top 10 wallets', known: top10pct !== null, status: top10pct === null ? 'warn' : top10pct < 25 ? 'ok' : top10pct < 50 ? 'warn' : 'bad', good: 'Top 10 = ' + top10pct + '% — bien distribué.', bad: top10pct === null ? 'Données non disponibles.' : 'Top 10 = ' + top10pct + '% — dump massif possible.', impact: "Si ces wallets vendent ensemble, le prix s'effondre.", weight: 14, eliminatory: false },
+    { name: 'Chute de prix récente', known: priceChange1h !== null, status: priceChange1h === null ? 'warn' : priceChange1h <= -50 ? 'bad' : priceChange1h <= -20 ? 'warn' : 'ok', good: 'Prix stable sur la dernière heure (' + (priceChange1h >= 0 ? '+' : '') + priceChange1h + '%) — pas de dump détecté.', bad: priceChange1h === null ? notTrackedMsg : 'Prix en chute de ' + Math.abs(priceChange1h) + '% sur la dernière heure — un dump est probablement déjà en cours.', impact: "La liquidité lockée n'empêche pas les holders de vendre directement leurs tokens.", weight: 16, eliminatory: true },
     { name: 'Wallet du créateur', known: creatorHoldingPct !== null, status: creatorHoldingPct === null ? 'warn' : creatorHoldingPct < 3 ? 'ok' : creatorHoldingPct < 10 ? 'warn' : 'bad', good: 'Le créateur détient ' + creatorHoldingPct + '% du supply — dump massif peu probable.', bad: creatorHoldingPct === null ? "Pas dans le top holders — impossible de vérifier ce qu'il détient encore." : 'Le créateur détient encore ' + creatorHoldingPct + "% du supply — il peut faire chuter le prix en vendant, même si la liquidité est lockée.", impact: 'La liquidité lockée empêche un retrait de pool, pas un dump direct des tokens du créateur.', weight: 12, eliminatory: false },
     { name: 'Historique du créateur', known: creatorKnown, status: creatorStatus, good: 'Aucun rug pull antérieur détecté.', bad: creatorBadText, impact: 'Un serial rugger a 90% de chances de recommencer.', weight: 8, eliminatory: true },
     { name: 'Coordination de wallets', known: linkedWallets !== null, status: linkedWallets === null ? 'warn' : linkedWallets > 3 ? 'bad' : linkedWallets > 1 ? 'warn' : 'ok', good: 'Pas de coordination détectée.', bad: linkedWallets === null ? notTrackedMsg : linkedWallets + ' wallets liés — pump & dump possible.', impact: 'Wallets coordonnés = manipulation organisée.', weight: 4, eliminatory: false },
@@ -225,6 +234,12 @@ function buildAnalysis(address, token, security, dex, insiders) {
   const ageCap = ageHours === null ? null : ageHours < 1 ? 35 : ageHours < 24 ? 64 : null;
   const ageCapped = ageCap !== null && score > ageCap;
   if (ageCap !== null) score = Math.min(score, ageCap);
+  // A confirmed ongoing crash outweighs every structural check — this isn't a
+  // risk prediction anymore, it's an already-observed outcome. A locked LP
+  // and revoked authorities don't matter if the price already collapsed.
+  const crashCap = priceCrashed ? 10 : null;
+  const crashCapped = crashCap !== null && score > crashCap;
+  if (crashCap !== null) score = Math.min(score, crashCap);
   score = Math.round(Math.max(0, Math.min(100, score)));
 
   let reputationScore = 100;
@@ -240,7 +255,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
     : reputationScore >= 70 ? 'Fiable' : reputationScore >= 40 ? 'Suspect' : 'Dangereux';
 
   return {
-    address, name, symbol, score, confidence, scoreCapped: hasEliminatory, ageCapped, ageHours, signals,
+    address, name, symbol, score, confidence, scoreCapped: hasEliminatory, ageCapped, crashCapped, ageHours, priceChange1h, signals,
     creator: { address: creatorAddress, prevRugs, walletAge: ageLabel, devSoldPct, creatorHoldingPct, linkedWallets, reputationScore, reputationLabel },
     market: { holders, top10pct, liquidityUsd: Math.round(liquidityUsd), volume24h: Math.round(volume24h), mcap: Math.round(mcap), age: ageLabel, liquidityLocked },
     recommendation: {

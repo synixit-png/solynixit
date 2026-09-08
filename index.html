@@ -4,16 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Solynixit-BETA</title>
-<meta name="description" content="Détecte le rug pull avant qu'il arrive. Entre l'adresse d'un token Solana et obtiens un score de risque basé sur 8 signaux critiques on-chain.">
+<meta name="description" content="Détecte le rug pull avant qu'il arrive. Entre l'adresse d'un token Solana et obtiens un score de risque basé sur 9 signaux critiques on-chain.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Solynixit-BETA — Détecte le rug pull avant qu'il arrive">
-<meta property="og:description" content="Entre l'adresse d'un token Solana. 8 signaux critiques analysés — score de risque, red flags, profil du créateur, recommandation.">
+<meta property="og:description" content="Entre l'adresse d'un token Solana. 9 signaux critiques analysés — score de risque, red flags, profil du créateur, recommandation.">
 <meta property="og:image" content="/og-image.png">
 <meta property="og:image:width" content="1678">
 <meta property="og:image:height" content="937">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Solynixit-BETA — Détecte le rug pull avant qu'il arrive">
-<meta name="twitter:description" content="Entre l'adresse d'un token Solana. 8 signaux critiques analysés — score de risque, red flags, profil du créateur, recommandation.">
+<meta name="twitter:description" content="Entre l'adresse d'un token Solana. 9 signaux critiques analysés — score de risque, red flags, profil du créateur, recommandation.">
 <meta name="twitter:image" content="/og-image.png">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -213,7 +213,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
     <div class="hero-left">
       <div class="hero-tag">⬡ Intelligence on-chain Solana</div>
       <h1 class="hero-title">Détecte le rug pull<br><span class="dim">avant qu'il arrive.</span></h1>
-      <p class="hero-sub">Entre l'adresse d'un token. 8 signaux critiques analysés — score de risque, red flags, profil du créateur, recommandation.</p>
+      <p class="hero-sub">Entre l'adresse d'un token. 9 signaux critiques analysés — score de risque, red flags, profil du créateur, recommandation.</p>
       <div class="search-wrap">
         <div class="search-inner">
           <input type="text" id="addr" class="search-input" placeholder="Adresse du token Solana..." autocomplete="off" spellcheck="false">
@@ -281,7 +281,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
     </div>
   </div>
   <div class="block grid1">
-    <div class="block-label">Analyse des 8 signaux</div>
+    <div class="block-label">Analyse des 9 signaux</div>
     <div class="sig-grid" id="sigGrid"></div>
   </div>
   <div class="block grid1">
@@ -539,7 +539,9 @@ function render(d) {
   confEl.textContent = 'Confiance : ' + d.confidence + '/100';
   confEl.className = 'score-confidence' + (d.confidence < 50 ? ' low' : '');
   document.getElementById('scoreVerdict').textContent = s >= 65 ? 'Risque faible' : s >= 40 ? 'Risque modéré' : 'Danger — Risque élevé';
-  document.getElementById('scoreDesc').textContent = d.ageCapped
+  document.getElementById('scoreDesc').textContent = d.crashCapped
+    ? '🔴 Le prix a déjà chuté de ' + Math.abs(d.priceChange1h) + '% sur la dernière heure — un dump est probablement déjà en cours, quels que soient les autres signaux. Ce n\'est plus une prédiction, c\'est déjà arrivé.'
+    : d.ageCapped
     ? '⏱ Token trop récent (' + (d.ageHours < 1 ? 'moins d\'1h' : d.ageHours + 'h') + ') pour être jugé fiable, quels que soient ses autres signaux — la fenêtre de pump & dump la plus dangereuse n\'est pas encore passée. Score plafonné par prudence.'
     : s >= 65 ? 'Les signaux principaux sont positifs. Reste vigilant et gère ta taille de position.' : s >= 40 ? 'Plusieurs signaux ambigus. Limite ton exposition et place un stop loss strict.' : 'Signaux critiques détectés. Fort risque de rug pull ou manipulation.';
   const rf = d.signals.filter(x => x.status === 'bad');
@@ -596,6 +598,7 @@ function render(d) {
   const capNotes = [];
   if (d.scoreCapped) capNotes.push('plafonné à 35 (signal éliminatoire négatif détecté)');
   if (d.ageCapped) capNotes.push('plafonné car le token est trop récent (' + (d.ageHours < 1 ? 'moins d\'1h' : d.ageHours + 'h') + ')');
+  if (d.crashCapped) capNotes.push('plafonné à 10 (chute de prix de ' + Math.abs(d.priceChange1h) + '% déjà en cours)');
   document.getElementById('explainFormula').textContent = 'Score = somme des points gagnés ÷ ' + knownWeight + ' (poids des signaux connus) × 100' + (capNotes.length ? ' — puis ' + capNotes.join(' et ') + '.' : '.');
   const reco = d.recommendation;
   document.getElementById('recoCards').innerHTML = [
@@ -621,7 +624,7 @@ function genThread() {
     "📋 Créateur\n\nRugs : " + (d.creator.prevRugs === null ? "Inconnu" : d.creator.prevRugs === 0 ? "Aucun ✅" : d.creator.prevRugs + " 🚨") + "\nCréateur détient : " + (d.creator.creatorHoldingPct === null ? "Hors top holders" : d.creator.creatorHoldingPct + "%") + "\nRéputation : " + d.creator.reputationScore + "/100 — " + d.creator.reputationLabel,
     "💧 Marché\n\nLiquidité : $" + d.market.liquidityUsd.toLocaleString('fr') + "\nMcap : $" + d.market.mcap.toLocaleString('fr') + "\nVolume 24h : $" + d.market.volume24h.toLocaleString('fr'),
     "📊 Verdict\n\nScore : " + s + "/100 (confiance : " + d.confidence + "/100) — " + (s >= 65 ? "Risque faible" : s >= 40 ? "Risque modéré" : "Danger") + "\nPosition max : " + d.recommendation.positionSize,
-    "Ma checklist :\n\n✅ Liquidité lockée ?\n✅ Mint authority révoquée ?\n✅ Top 10 < 25% ?\n✅ Créateur propre ?\n✅ Dev n'a pas massivement vendu ?\n\nSi une case manque — je n'entre pas.",
+    "Ma checklist :\n\n✅ Liquidité lockée ?\n✅ Mint authority révoquée ?\n✅ Top 10 < 25% ?\n✅ Créateur propre ?\n✅ Créateur ne détient pas trop de supply ?\n✅ Pas de chute de prix déjà en cours ?\n\nSi une case manque — je n'entre pas.",
     "Suis-moi pour ne plus te faire ruger.\n\nTu aurais acheté " + (sym || "ce token") + " ? 👇"
   ];
   document.getElementById('threadTweets').innerHTML = tweets.map((t, i) =>
