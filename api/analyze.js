@@ -159,36 +159,57 @@ function buildAnalysis(address, token, security, dex, insiders) {
   const holderStatus = holders > holderBar.ok ? 'ok' : holders > holderBar.warn ? 'warn' : 'bad';
   const holderAgeNote = ageHours === null ? '' : ' (token âgé de ' + ageLabel + ')';
 
+  // `known` marks whether we actually have data for this signal, separate from
+  // `status`. A signal can be 'warn' for two very different reasons: genuinely
+  // ambiguous data we DO have (e.g. top10pct at 32%, known=true) vs data we
+  // simply don't have at all (known=false). Only known signals count toward
+  // the score and toward confidence — an unknown never buys partial credit.
   const signals = [
-    { name: 'Liquidité lockée', status: liquidityLocked === null ? 'warn' : liquidityLocked ? 'ok' : 'bad', good: 'Liquidité lockée à ' + lpLockedPct + '% — le dev ne peut pas retirer les fonds facilement.', bad: liquidityLocked === null ? notTrackedMsg : 'Liquidité lockée à seulement ' + lpLockedPct + '% — rug pull possible à tout moment.', impact: 'Si le dev retire la liquidité, le token vaut 0 en secondes.', weight: 20, eliminatory: true },
-    { name: 'Mint authority révoquée', status: mintRevoked === null ? 'warn' : mintRevoked ? 'ok' : 'bad', good: 'Impossible de créer de nouveaux tokens — supply fixe.', bad: mintRevoked === null ? fetchFailedMsg : "Mint authority active — le dev peut créer des tokens à l'infini.", impact: 'Création illimitée = dilution et destruction de valeur.', weight: 18, eliminatory: true },
-    { name: 'Freeze authority révoquée', status: freezeRevoked === null ? 'warn' : freezeRevoked ? 'ok' : 'bad', good: 'Personne ne peut bloquer tes tokens.', bad: freezeRevoked === null ? fetchFailedMsg : 'Freeze authority active — le dev peut geler ton wallet.', impact: 'Tu pourrais être bloqué et incapable de vendre.', weight: 12, eliminatory: false },
-    { name: 'Distribution des holders', status: holderStatus, good: holders.toLocaleString('fr') + ' holders' + holderAgeNote + ' — bonne distribution pour son âge.', bad: holders.toLocaleString('fr') + ' holders seulement' + holderAgeNote + ' — manipulation facile.', impact: 'Peu de holders = prix contrôlé par quelques wallets.', weight: 12, eliminatory: false },
-    { name: 'Concentration top 10 wallets', status: top10pct === null ? 'warn' : top10pct < 25 ? 'ok' : top10pct < 50 ? 'warn' : 'bad', good: 'Top 10 = ' + top10pct + '% — bien distribué.', bad: top10pct === null ? 'Données non disponibles.' : 'Top 10 = ' + top10pct + '% — dump massif possible.', impact: "Si ces wallets vendent ensemble, le prix s'effondre.", weight: 14, eliminatory: false },
-    { name: 'Comportement du développeur', status: 'warn', good: 'Dev a vendu peu de sa position — reste engagé.', bad: notTrackedMsg, impact: "Un dev qui vend massivement n'a plus d'intérêt à développer.", weight: 12, eliminatory: false },
-    { name: 'Historique du créateur', status: prevRugs === null ? 'warn' : prevRugs === 0 ? 'ok' : 'bad', good: 'Aucun rug pull antérieur détecté.', bad: prevRugs === null ? fetchFailedMsg : prevRugs + ' rug pull(s) antérieur(s) sur ce wallet.', impact: 'Un serial rugger a 90% de chances de recommencer.', weight: 8, eliminatory: true },
-    { name: 'Coordination de wallets', status: linkedWallets === null ? 'warn' : linkedWallets > 3 ? 'bad' : linkedWallets > 1 ? 'warn' : 'ok', good: 'Pas de coordination détectée.', bad: linkedWallets === null ? notTrackedMsg : linkedWallets + ' wallets liés — pump & dump possible.', impact: 'Wallets coordonnés = manipulation organisée.', weight: 4, eliminatory: false },
+    { name: 'Liquidité lockée', known: liquidityLocked !== null, status: liquidityLocked === null ? 'warn' : liquidityLocked ? 'ok' : 'bad', good: 'Liquidité lockée à ' + lpLockedPct + '% — le dev ne peut pas retirer les fonds facilement.', bad: liquidityLocked === null ? notTrackedMsg : 'Liquidité lockée à seulement ' + lpLockedPct + '% — rug pull possible à tout moment.', impact: 'Si le dev retire la liquidité, le token vaut 0 en secondes.', weight: 20, eliminatory: true },
+    { name: 'Mint authority révoquée', known: mintRevoked !== null, status: mintRevoked === null ? 'warn' : mintRevoked ? 'ok' : 'bad', good: 'Impossible de créer de nouveaux tokens — supply fixe.', bad: mintRevoked === null ? fetchFailedMsg : "Mint authority active — le dev peut créer des tokens à l'infini.", impact: 'Création illimitée = dilution et destruction de valeur.', weight: 18, eliminatory: true },
+    { name: 'Freeze authority révoquée', known: freezeRevoked !== null, status: freezeRevoked === null ? 'warn' : freezeRevoked ? 'ok' : 'bad', good: 'Personne ne peut bloquer tes tokens.', bad: freezeRevoked === null ? fetchFailedMsg : 'Freeze authority active — le dev peut geler ton wallet.', impact: 'Tu pourrais être bloqué et incapable de vendre.', weight: 12, eliminatory: false },
+    { name: 'Distribution des holders', known: true, status: holderStatus, good: holders.toLocaleString('fr') + ' holders' + holderAgeNote + ' — bonne distribution pour son âge.', bad: holders.toLocaleString('fr') + ' holders seulement' + holderAgeNote + ' — manipulation facile.', impact: 'Peu de holders = prix contrôlé par quelques wallets.', weight: 12, eliminatory: false },
+    { name: 'Concentration top 10 wallets', known: top10pct !== null, status: top10pct === null ? 'warn' : top10pct < 25 ? 'ok' : top10pct < 50 ? 'warn' : 'bad', good: 'Top 10 = ' + top10pct + '% — bien distribué.', bad: top10pct === null ? 'Données non disponibles.' : 'Top 10 = ' + top10pct + '% — dump massif possible.', impact: "Si ces wallets vendent ensemble, le prix s'effondre.", weight: 14, eliminatory: false },
+    { name: 'Comportement du développeur', known: false, status: 'warn', good: 'Dev a vendu peu de sa position — reste engagé.', bad: notTrackedMsg, impact: "Un dev qui vend massivement n'a plus d'intérêt à développer.", weight: 12, eliminatory: false },
+    { name: 'Historique du créateur', known: prevRugs !== null, status: prevRugs === null ? 'warn' : prevRugs === 0 ? 'ok' : 'bad', good: 'Aucun rug pull antérieur détecté.', bad: prevRugs === null ? fetchFailedMsg : prevRugs + ' rug pull(s) antérieur(s) sur ce wallet.', impact: 'Un serial rugger a 90% de chances de recommencer.', weight: 8, eliminatory: true },
+    { name: 'Coordination de wallets', known: linkedWallets !== null, status: linkedWallets === null ? 'warn' : linkedWallets > 3 ? 'bad' : linkedWallets > 1 ? 'warn' : 'ok', good: 'Pas de coordination détectée.', bad: linkedWallets === null ? notTrackedMsg : linkedWallets + ' wallets liés — pump & dump possible.', impact: 'Wallets coordonnés = manipulation organisée.', weight: 4, eliminatory: false },
   ];
 
-  let score = 0, hasEliminatory = false;
+  // Score is renormalized over KNOWN signals only, so missing data is simply
+  // excluded rather than silently earning the 40% "ambiguous" credit that a
+  // genuinely-known-but-mixed signal (e.g. top10pct at 32%) deserves.
+  // Confidence tracks, separately, how much of the full picture we actually
+  // have — a high score built on low confidence is not the same as a high
+  // score built on solid data, and the UI needs both.
+  const totalWeight = signals.reduce((sum, s) => sum + s.weight, 0);
+  const knownWeight = signals.filter(s => s.known).reduce((sum, s) => sum + s.weight, 0);
+  const confidence = totalWeight > 0 ? Math.round((knownWeight / totalWeight) * 100) : 0;
+
+  let scoreSum = 0, hasEliminatory = false;
   signals.forEach(s => {
-    if (s.status === 'ok') score += s.weight;
-    else if (s.status === 'warn') score += s.weight * 0.4;
+    if (!s.known) return;
+    if (s.status === 'ok') scoreSum += s.weight;
+    else if (s.status === 'warn') scoreSum += s.weight * 0.4;
     else if (s.eliminatory) hasEliminatory = true;
   });
+  let score = knownWeight > 0 ? Math.round((scoreSum / knownWeight) * 100) : 0;
   if (hasEliminatory) score = Math.min(score, 35);
   score = Math.round(Math.max(0, Math.min(100, score)));
 
   let reputationScore = 100;
-  if (prevRugs > 0) reputationScore -= 60;
+  if (prevRugs !== null && prevRugs > 0) reputationScore -= 60;
   if (devSoldPct !== null && devSoldPct > 50) reputationScore -= 20;
   if (linkedWallets !== null && linkedWallets > 3) reputationScore -= 15;
   if (ageHours !== null && ageHours < 48) reputationScore -= 10;
   reputationScore = Math.max(0, reputationScore);
-  const reputationLabel = reputationScore >= 70 ? 'Fiable' : reputationScore >= 40 ? 'Suspect' : 'Dangereux';
+  // A high reputationScore built on very little real data is not "trustworthy"
+  // — it just means nothing bad was found yet, which is not the same thing.
+  // Below 50% confidence, say so explicitly instead of vouching for the wallet.
+  const reputationLabel = confidence < 50 ? 'Données insuffisantes'
+    : reputationScore >= 70 ? 'Fiable' : reputationScore >= 40 ? 'Suspect' : 'Dangereux';
 
   return {
-    address, name, symbol, score, signals,
+    address, name, symbol, score, confidence, signals,
     creator: { address: creatorAddress, prevRugs, prevTokens: linkedWallets, walletAge: ageLabel, devSoldPct, linkedWallets, reputationScore, reputationLabel },
     market: { holders, top10pct, liquidityUsd: Math.round(liquidityUsd), volume24h: Math.round(volume24h), mcap: Math.round(mcap), age: ageLabel, liquidityLocked },
     recommendation: {

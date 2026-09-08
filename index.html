@@ -91,6 +91,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .score-hero.amber .score-num{color:var(--amber)}
 .score-hero.red .score-num{color:var(--red)}
 .score-denom{font-size:16px;color:var(--text3);font-family:var(--mono)}
+.score-confidence{font-size:11px;font-family:var(--mono);color:var(--text3);margin-top:8px}
+.score-confidence.low{color:var(--amber)}
 .score-verdict{font-size:26px;font-weight:700;letter-spacing:-0.03em;margin-bottom:8px}
 .score-hero.green .score-verdict{color:var(--cyan)}
 .score-hero.amber .score-verdict{color:var(--amber)}
@@ -234,6 +236,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
     <div class="score-num-wrap">
       <div class="score-num" id="scoreNum">--</div>
       <div class="score-denom">/100</div>
+      <div class="score-confidence" id="scoreConfidence"></div>
     </div>
     <div>
       <div class="score-verdict" id="scoreVerdict">—</div>
@@ -510,6 +513,9 @@ function render(d) {
   const banner = document.getElementById('scoreBanner');
   banner.className = 'score-hero ' + cls;
   document.getElementById('scoreNum').textContent = s;
+  const confEl = document.getElementById('scoreConfidence');
+  confEl.textContent = 'Confiance : ' + d.confidence + '/100';
+  confEl.className = 'score-confidence' + (d.confidence < 50 ? ' low' : '');
   document.getElementById('scoreVerdict').textContent = s >= 65 ? 'Risque faible' : s >= 40 ? 'Risque modéré' : 'Danger — Risque élevé';
   document.getElementById('scoreDesc').textContent = s >= 65 ? 'Les signaux principaux sont positifs. Reste vigilant et gère ta taille de position.' : s >= 40 ? 'Plusieurs signaux ambigus. Limite ton exposition et place un stop loss strict.' : 'Signaux critiques détectés. Fort risque de rug pull ou manipulation.';
   const rf = d.signals.filter(x => x.status === 'bad');
@@ -526,7 +532,7 @@ function render(d) {
     ).join('');
   } else { rfBlock.style.display = 'none'; }
   const rep = d.creator.reputationScore;
-  const rc = rep >= 65 ? 'var(--cyan)' : rep >= 40 ? 'var(--amber)' : 'var(--red)';
+  const rc = d.creator.reputationLabel === 'Données insuffisantes' ? 'var(--amber)' : rep >= 65 ? 'var(--cyan)' : rep >= 40 ? 'var(--amber)' : 'var(--red)';
   document.getElementById('repFill').style.cssText = 'width:' + rep + '%;background:' + rc;
   document.getElementById('repScore').style.color = rc;
   document.getElementById('repScore').textContent = rep + '/100 — ' + d.creator.reputationLabel;
@@ -572,9 +578,9 @@ function genThread() {
     "J'ai analysé " + name + " " + sym + " avec mon scanner on-chain.\n\nScore de risque : " + s + "/100\n" + (rf.length > 0 ? rf.length + " signaux critiques ⚠" : "Signaux positifs ✅") + "\n\nVoici ce que j'ai trouvé 🧵",
     rf.length > 0 ? "🚨 Signal critique #1 : " + rf[0].name + "\n\n" + rf[0].bad + "\n\n→ " + rf[0].impact : "✅ " + d.signals.filter(x => x.status === 'ok')[0]?.name + "\n\n" + d.signals.filter(x => x.status === 'ok')[0]?.good,
     rf.length > 1 ? "🚨 Signal critique #2 : " + rf[1].name + "\n\n" + rf[1].bad + "\n\n→ " + rf[1].impact : "📊 " + d.market.holders.toLocaleString('fr') + " holders\nTop 10 = " + d.market.top10pct + "%\n\n" + (d.market.top10pct < 25 ? "Bien distribué ✅" : "Concentration élevée ⚠"),
-    "📋 Créateur\n\nRugs : " + (d.creator.prevRugs === null ? "Inconnu" : d.creator.prevRugs === 0 ? "Aucun ✅" : d.creator.prevRugs + " 🚨") + "\nDev vendu : " + (d.creator.devSoldPct === null ? "Inconnu" : d.creator.devSoldPct + "%") + "\nRéputation : " + d.creator.reputationScore + "/100",
+    "📋 Créateur\n\nRugs : " + (d.creator.prevRugs === null ? "Inconnu" : d.creator.prevRugs === 0 ? "Aucun ✅" : d.creator.prevRugs + " 🚨") + "\nDev vendu : " + (d.creator.devSoldPct === null ? "Inconnu" : d.creator.devSoldPct + "%") + "\nRéputation : " + d.creator.reputationScore + "/100 — " + d.creator.reputationLabel,
     "💧 Marché\n\nLiquidité : $" + d.market.liquidityUsd.toLocaleString('fr') + "\nMcap : $" + d.market.mcap.toLocaleString('fr') + "\nVolume 24h : $" + d.market.volume24h.toLocaleString('fr'),
-    "📊 Verdict\n\nScore : " + s + "/100 — " + (s >= 65 ? "Risque faible" : s >= 40 ? "Risque modéré" : "Danger") + "\nPosition max : " + d.recommendation.positionSize,
+    "📊 Verdict\n\nScore : " + s + "/100 (confiance : " + d.confidence + "/100) — " + (s >= 65 ? "Risque faible" : s >= 40 ? "Risque modéré" : "Danger") + "\nPosition max : " + d.recommendation.positionSize,
     "Ma checklist :\n\n✅ Liquidité lockée ?\n✅ Mint authority révoquée ?\n✅ Top 10 < 25% ?\n✅ Créateur propre ?\n✅ Dev n'a pas massivement vendu ?\n\nSi une case manque — je n'entre pas.",
     "Suis-moi pour ne plus te faire ruger.\n\nTu aurais acheté " + (sym || "ce token") + " ? 👇"
   ];
