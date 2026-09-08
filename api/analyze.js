@@ -31,18 +31,20 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Adresse invalide.' });
   }
   try {
-    const [tokenData, securityData, marketData] = await Promise.allSettled([
+    const [tokenData, securityData, marketData, insidersData] = await Promise.allSettled([
       fetchTokenOverview(address),
       fetchRugCheck(address),
       fetchDexScreener(address),
+      fetchInsiders(address),
     ]);
     const token = tokenData.status === 'fulfilled' ? tokenData.value : null;
     const security = securityData.status === 'fulfilled' ? securityData.value : null;
     const dex = marketData.status === 'fulfilled' ? marketData.value : null;
+    const insiders = insidersData.status === 'fulfilled' ? insidersData.value : null;
     if (!token && !security && !dex) {
       return res.status(404).json({ error: 'Token introuvable — vérifie l\'adresse ou réessaie plus tard.' });
     }
-    return res.status(200).json(buildAnalysis(address, token, security, dex));
+    return res.status(200).json(buildAnalysis(address, token, security, dex, insiders));
   } catch (err) {
     return res.status(500).json({ error: "Erreur lors de l'analyse. Réessaie." });
   }
@@ -76,6 +78,25 @@ async function fetchRugCheck(address) {
   }
 }
 
+// RugCheck's insider/bundled-wallet graph. Real-world integrations disagree
+// on the exact response shape (seen: {insiders:[...]}, {nodes:[...],edges:[...]},
+// or a bare array), so this is parsed defensively in buildAnalysis — an
+// unrecognized shape just falls back to "not tracked", never a wrong count.
+async function fetchInsiders(address) {
+  try {
+    const r = await fetch(`https://api.rugcheck.xyz/v1/tokens/${address}/insiders/graph`);
+    if (!r.ok) {
+      console.error('RugCheck insiders error', r.status);
+      return null;
+    }
+    const j = await r.json();
+    return j || null;
+  } catch (e) {
+    console.error('RugCheck insiders exception', e);
+    return null;
+  }
+}
+
 async function fetchDexScreener(address) {
   const r = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`);
   if (!r.ok) return null;
@@ -83,7 +104,18 @@ async function fetchDexScreener(address) {
   return j.pairs?.[0] || null;
 }
 
-function buildAnalysis(address, token, security, dex) {
+// The insiders/graph endpoint's shape isn't consistent across known
+// integrations, so we try the documented variants in order and stop at the
+// first one that matches — never guess a number from an unrecognized shape.
+function countLinkedWallets(insiders) {
+  if (!insiders) return null;
+  if (Array.isArray(insiders)) return insiders.length;
+  if (Array.isArray(insiders.insiders)) return insiders.insiders.length;
+  if (Array.isArray(insiders.nodes)) return Math.max(0, insiders.nodes.length - 1);
+  return null;
+}
+
+function buildAnalysis(address, token, security, dex, insiders) {
   const name = token?.name || dex?.baseToken?.name || null;
   const symbol = token?.symbol || dex?.baseToken?.symbol || null;
   const holders = token?.holder || 0;
@@ -103,10 +135,10 @@ function buildAnalysis(address, token, security, dex) {
   const lpLockedPctRaw = primaryMarket?.lp?.lpLockedPct;
   const lpLockedPct = typeof lpLockedPctRaw === 'number' ? Math.round(lpLockedPctRaw) : null;
   const liquidityLocked = lpLockedPct === null ? null : lpLockedPct >= 50;
+  const linkedWallets = countLinkedWallets(insiders);
   // Not exposed by RugCheck's single-token report — left honestly unavailable
-  // rather than guessed, until we integrate a source that actually provides them.
+  // rather than guessed, until we integrate a source that actually provides it.
   const devSoldPct = null;
-  const linkedWallets = null;
 
   const createdAt = token?.createdAt || dex?.pairCreatedAt;
   const ageMs = createdAt ? Date.now() - createdAt : null;
@@ -135,7 +167,7 @@ function buildAnalysis(address, token, security, dex) {
     { name: 'Concentration top 10 wallets', status: top10pct === null ? 'warn' : top10pct < 25 ? 'ok' : top10pct < 50 ? 'warn' : 'bad', good: 'Top 10 = ' + top10pct + '% — bien distribué.', bad: top10pct === null ? 'Données non disponibles.' : 'Top 10 = ' + top10pct + '% — dump massif possible.', impact: "Si ces wallets vendent ensemble, le prix s'effondre.", weight: 14, eliminatory: false },
     { name: 'Comportement du développeur', status: 'warn', good: 'Dev a vendu peu de sa position — reste engagé.', bad: notTrackedMsg, impact: "Un dev qui vend massivement n'a plus d'intérêt à développer.", weight: 12, eliminatory: false },
     { name: 'Historique du créateur', status: prevRugs === null ? 'warn' : prevRugs === 0 ? 'ok' : 'bad', good: 'Aucun rug pull antérieur détecté.', bad: prevRugs === null ? fetchFailedMsg : prevRugs + ' rug pull(s) antérieur(s) sur ce wallet.', impact: 'Un serial rugger a 90% de chances de recommencer.', weight: 8, eliminatory: true },
-    { name: 'Coordination de wallets', status: 'warn', good: 'Pas de coordination détectée.', bad: notTrackedMsg, impact: 'Wallets coordonnés = manipulation organisée.', weight: 4, eliminatory: false },
+    { name: 'Coordination de wallets', status: linkedWallets === null ? 'warn' : linkedWallets > 3 ? 'bad' : linkedWallets > 1 ? 'warn' : 'ok', good: 'Pas de coordination détectée.', bad: linkedWallets === null ? notTrackedMsg : linkedWallets + ' wallets liés — pump & dump possible.', impact: 'Wallets coordonnés = manipulation organisée.', weight: 4, eliminatory: false },
   ];
 
   let score = 0, hasEliminatory = false;
