@@ -148,6 +148,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .rc-val{font-size:17px;font-weight:700;font-family:var(--mono)}
 .reco-note{font-size:12px;color:var(--text2);line-height:1.7;padding-top:14px;border-top:1px solid var(--border);font-style:italic}
 
+.explain-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px}
+.explain-row:last-child{border-bottom:none;padding-bottom:0}
+.explain-row:first-child{padding-top:0}
+.explain-name{color:var(--text)}
+.explain-note{font-size:11px;color:var(--text3);margin-top:1px}
+.explain-pts{font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap}
+.explain-pts.full{color:var(--cyan)}
+.explain-pts.partial{color:var(--amber)}
+.explain-pts.zero{color:var(--red)}
+.explain-pts.excluded{color:var(--text3)}
+.explain-formula{font-size:11px;font-family:var(--mono);color:var(--text3);line-height:1.7;padding-top:14px;margin-top:4px;border-top:1px solid var(--border)}
+
 .thread-cta{background:linear-gradient(135deg,rgba(0,229,255,0.05),rgba(153,69,255,0.05));border:1px solid var(--cyan-border);border-radius:16px;padding:26px;text-align:center;margin-bottom:12px}
 .thread-cta-title{font-size:15px;font-weight:600;margin-bottom:6px}
 .thread-cta-sub{font-size:13px;color:var(--text2);margin-bottom:18px}
@@ -266,6 +278,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
   <div class="block grid1">
     <div class="block-label">Analyse des 8 signaux</div>
     <div class="sig-grid" id="sigGrid"></div>
+  </div>
+  <div class="block grid1">
+    <div class="block-label">Pourquoi ce score ?</div>
+    <div id="explainRows"></div>
+    <div class="explain-formula" id="explainFormula"></div>
   </div>
   <div class="block grid1">
     <div class="block-label">Recommandation</div>
@@ -557,6 +574,20 @@ function render(d) {
   document.getElementById('sigGrid').innerHTML = d.signals.map(sig =>
     '<div class="sig ' + sig.status + '">' + (sig.status === 'ok' ? iOk : sig.status === 'warn' ? iWarn : iBad) + '<div><div class="sig-name">' + sig.name + '</div><div class="sig-desc">' + (sig.status === 'ok' ? sig.good : sig.bad) + '</div></div></div>'
   ).join('');
+  let knownWeight = 0;
+  const explainRows = d.signals.map(sig => {
+    let pts, cls, note;
+    if (!sig.known) { pts = 0; cls = 'excluded'; note = 'donnée manquante — exclu du calcul'; }
+    else {
+      knownWeight += sig.weight;
+      if (sig.status === 'ok') { pts = sig.weight; cls = 'full'; note = 'signal positif'; }
+      else if (sig.status === 'warn') { pts = Math.round(sig.weight * 0.4 * 10) / 10; cls = 'partial'; note = 'signal ambigu — crédit partiel'; }
+      else { pts = 0; cls = 'zero'; note = sig.eliminatory ? 'signal négatif — plafonne le score à 35' : 'signal négatif'; }
+    }
+    return '<div class="explain-row"><div><div class="explain-name">' + sig.name + '</div><div class="explain-note">' + note + '</div></div><div class="explain-pts ' + cls + '">' + pts + ' / ' + sig.weight + '</div></div>';
+  }).join('');
+  document.getElementById('explainRows').innerHTML = explainRows;
+  document.getElementById('explainFormula').textContent = 'Score = somme des points gagnés ÷ ' + knownWeight + ' (poids des signaux connus) × 100' + (d.scoreCapped ? ' — puis plafonné à 35 (signal éliminatoire négatif détecté).' : '.');
   const reco = d.recommendation;
   document.getElementById('recoCards').innerHTML = [
     { l: 'Position max', v: reco.positionSize, col: s >= 65 ? 'var(--cyan)' : s >= 40 ? 'var(--amber)' : 'var(--red)' },

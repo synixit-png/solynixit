@@ -209,7 +209,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
     : reputationScore >= 70 ? 'Fiable' : reputationScore >= 40 ? 'Suspect' : 'Dangereux';
 
   return {
-    address, name, symbol, score, confidence, signals,
+    address, name, symbol, score, confidence, scoreCapped: hasEliminatory, signals,
     creator: { address: creatorAddress, prevRugs, prevTokens: linkedWallets, walletAge: ageLabel, devSoldPct, linkedWallets, reputationScore, reputationLabel },
     market: { holders, top10pct, liquidityUsd: Math.round(liquidityUsd), volume24h: Math.round(volume24h), mcap: Math.round(mcap), age: ageLabel, liquidityLocked },
     recommendation: {
