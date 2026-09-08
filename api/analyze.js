@@ -99,9 +99,12 @@ function buildAnalysis(address, token, security, dex) {
   const top10pct = securityAvailable && Array.isArray(security.topHolders)
     ? Math.round(security.topHolders.slice(0, 10).reduce((sum, h) => sum + (Number(h?.pct) || 0), 0))
     : null;
+  const primaryMarket = securityAvailable && Array.isArray(security.markets) ? security.markets[0] : null;
+  const lpLockedPctRaw = primaryMarket?.lp?.lpLockedPct;
+  const lpLockedPct = typeof lpLockedPctRaw === 'number' ? Math.round(lpLockedPctRaw) : null;
+  const liquidityLocked = lpLockedPct === null ? null : lpLockedPct >= 50;
   // Not exposed by RugCheck's single-token report — left honestly unavailable
   // rather than guessed, until we integrate a source that actually provides them.
-  const liquidityLocked = null;
   const devSoldPct = null;
   const linkedWallets = null;
 
@@ -113,11 +116,22 @@ function buildAnalysis(address, token, security, dex) {
   const fetchFailedMsg = 'Donnée de sécurité indisponible — impossible de vérifier ce signal.';
   const notTrackedMsg = "Ce signal n'est pas encore pris en charge par notre analyse actuelle.";
 
+  // Holder-count bar scales with token age: 1000+ holders after a few hours is
+  // strong traction, the same count after months would be stagnant. Avoids
+  // flagging young, fast-growing tokens as mediocre just because they haven't
+  // had time to accumulate the holder count an older token would need.
+  const holderBar = ageHours === null ? { ok: 3000, warn: 500 }
+    : ageHours < 24 ? { ok: 500, warn: 100 }
+    : ageHours < 168 ? { ok: 1500, warn: 300 }
+    : { ok: 3000, warn: 500 };
+  const holderStatus = holders > holderBar.ok ? 'ok' : holders > holderBar.warn ? 'warn' : 'bad';
+  const holderAgeNote = ageHours === null ? '' : ' (token âgé de ' + ageLabel + ')';
+
   const signals = [
-    { name: 'Liquidité lockée', status: 'warn', good: 'Liquidité verrouillée — le dev ne peut pas retirer les fonds.', bad: notTrackedMsg, impact: 'Si le dev retire la liquidité, le token vaut 0 en secondes.', weight: 20, eliminatory: true },
+    { name: 'Liquidité lockée', status: liquidityLocked === null ? 'warn' : liquidityLocked ? 'ok' : 'bad', good: 'Liquidité lockée à ' + lpLockedPct + '% — le dev ne peut pas retirer les fonds facilement.', bad: liquidityLocked === null ? notTrackedMsg : 'Liquidité lockée à seulement ' + lpLockedPct + '% — rug pull possible à tout moment.', impact: 'Si le dev retire la liquidité, le token vaut 0 en secondes.', weight: 20, eliminatory: true },
     { name: 'Mint authority révoquée', status: mintRevoked === null ? 'warn' : mintRevoked ? 'ok' : 'bad', good: 'Impossible de créer de nouveaux tokens — supply fixe.', bad: mintRevoked === null ? fetchFailedMsg : "Mint authority active — le dev peut créer des tokens à l'infini.", impact: 'Création illimitée = dilution et destruction de valeur.', weight: 18, eliminatory: true },
     { name: 'Freeze authority révoquée', status: freezeRevoked === null ? 'warn' : freezeRevoked ? 'ok' : 'bad', good: 'Personne ne peut bloquer tes tokens.', bad: freezeRevoked === null ? fetchFailedMsg : 'Freeze authority active — le dev peut geler ton wallet.', impact: 'Tu pourrais être bloqué et incapable de vendre.', weight: 12, eliminatory: false },
-    { name: 'Distribution des holders', status: holders > 3000 ? 'ok' : holders > 500 ? 'warn' : 'bad', good: holders.toLocaleString('fr') + ' holders — bonne distribution.', bad: holders.toLocaleString('fr') + ' holders seulement — manipulation facile.', impact: 'Peu de holders = prix contrôlé par quelques wallets.', weight: 12, eliminatory: false },
+    { name: 'Distribution des holders', status: holderStatus, good: holders.toLocaleString('fr') + ' holders' + holderAgeNote + ' — bonne distribution pour son âge.', bad: holders.toLocaleString('fr') + ' holders seulement' + holderAgeNote + ' — manipulation facile.', impact: 'Peu de holders = prix contrôlé par quelques wallets.', weight: 12, eliminatory: false },
     { name: 'Concentration top 10 wallets', status: top10pct === null ? 'warn' : top10pct < 25 ? 'ok' : top10pct < 50 ? 'warn' : 'bad', good: 'Top 10 = ' + top10pct + '% — bien distribué.', bad: top10pct === null ? 'Données non disponibles.' : 'Top 10 = ' + top10pct + '% — dump massif possible.', impact: "Si ces wallets vendent ensemble, le prix s'effondre.", weight: 14, eliminatory: false },
     { name: 'Comportement du développeur', status: 'warn', good: 'Dev a vendu peu de sa position — reste engagé.', bad: notTrackedMsg, impact: "Un dev qui vend massivement n'a plus d'intérêt à développer.", weight: 12, eliminatory: false },
     { name: 'Historique du créateur', status: prevRugs === null ? 'warn' : prevRugs === 0 ? 'ok' : 'bad', good: 'Aucun rug pull antérieur détecté.', bad: prevRugs === null ? fetchFailedMsg : prevRugs + ' rug pull(s) antérieur(s) sur ce wallet.', impact: 'Un serial rugger a 90% de chances de recommencer.', weight: 8, eliminatory: true },
