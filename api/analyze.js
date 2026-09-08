@@ -154,6 +154,12 @@ function buildAnalysis(address, token, security, dex, insiders) {
     ? security.topHolders.find(h => h && (h.address === creatorAddress || h.owner === creatorAddress))
     : null;
   const creatorHoldingPct = creatorHolder ? Math.round(Number(creatorHolder.pct) || 0) : null;
+  // Largest single holder, whoever they are — not just the tagged creator.
+  // A sniper/insider wallet holding a huge share is just as dangerous as the
+  // creator holding it directly, and this catches that case too.
+  const topSingleHolderPct = securityAvailable && Array.isArray(security.topHolders) && security.topHolders.length
+    ? Math.round(Math.max(...security.topHolders.map(h => Number(h?.pct) || 0)))
+    : null;
   const devSoldPct = null;
 
   // Locked liquidity and revoked authorities describe what CAN'T happen
@@ -186,6 +192,14 @@ function buildAnalysis(address, token, security, dex, insiders) {
   // real counterparty. This is a verifiable current fact, not a prediction,
   // so it gets the same hard cap treatment as an already-confirmed crash.
   const noRealMarket = holders > 0 && holders <= 3;
+  // The classic 10-second rug pattern: brand new, barely any holders yet,
+  // and one wallet already sitting on a big chunk of supply. None of these
+  // three alone is damning (a good project also starts young with few
+  // holders), but together they're the exact shape of a token that's about
+  // to be dumped on the few people who bought in first.
+  const compoundYoungRisk = ageHours !== null && ageHours < 1
+    && holders > 0 && holders < 100
+    && ((topSingleHolderPct !== null && topSingleHolderPct >= 15) || (creatorHoldingPct !== null && creatorHoldingPct >= 10));
   const holderAgeNote = ageHours === null ? '' : ' (token âgé de ' + ageLabel + ')';
 
   // "No rugs found" is only meaningful if the wallet has existed long enough
@@ -249,7 +263,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
   // risk prediction anymore, it's an already-observed outcome. A locked LP
   // and revoked authorities don't matter if the price already collapsed, and
   // a near-empty pool (however "locked") means the money is already gone.
-  const crashCap = (priceCrashed || liquidityTooThin || noRealMarket) ? 10 : null;
+  const crashCap = (priceCrashed || liquidityTooThin || noRealMarket || compoundYoungRisk) ? 10 : null;
   const crashCapped = crashCap !== null && score > crashCap;
   if (crashCap !== null) score = Math.min(score, crashCap);
   score = Math.round(Math.max(0, Math.min(100, score)));
@@ -267,7 +281,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
     : reputationScore >= 70 ? 'Fiable' : reputationScore >= 40 ? 'Suspect' : 'Dangereux';
 
   return {
-    address, name, symbol, score, confidence, scoreCapped: hasEliminatory, ageDiscounted: ageConfidenceFactor < 1, crashCapped, ageHours, priceChange1h, signals,
+    address, name, symbol, score, confidence, scoreCapped: hasEliminatory, ageDiscounted: ageConfidenceFactor < 1, crashCapped, compoundYoungRisk, ageHours, priceChange1h, signals,
     creator: { address: creatorAddress, prevRugs, walletAge: ageLabel, devSoldPct, creatorHoldingPct, linkedWallets, reputationScore, reputationLabel },
     market: { holders, top10pct, liquidityUsd: Math.round(liquidityUsd), volume24h: Math.round(volume24h), mcap: Math.round(mcap), age: ageLabel, liquidityLocked },
     recommendation: {

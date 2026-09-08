@@ -549,6 +549,8 @@ function render(d) {
         ? '🔴 La pool ne contient que $' + d.market.liquidityUsd.toLocaleString('fr') + ' — même "lockée", il n\'y a quasiment plus rien à protéger. La liquidité a déjà été vidée.'
         : noRealMarketNow
         ? '🔴 Seulement ' + d.market.holders + ' détenteur(s) — ce n\'est pas encore un marché réel, juste toi et éventuellement le créateur. Impossible de juger un risque de distribution qui n\'existe pas encore.'
+        : d.compoundYoungRisk
+        ? '🔴 Token très récent, peu de détenteurs, et un wallet qui détient déjà une grosse part du supply — c\'est le profil classique du rug qui va dumper sur les premiers acheteurs.'
         : '🔴 Signal critique confirmé — score plafonné par prudence, quels que soient les autres signaux.')
     : s >= 65 ? 'Les signaux principaux sont positifs. Reste vigilant et gère ta taille de position.' : s >= 40 ? 'Plusieurs signaux ambigus. Limite ton exposition et place un stop loss strict.' : 'Signaux critiques détectés. Fort risque de rug pull ou manipulation.';
   const rf = d.signals.filter(x => x.status === 'bad');
@@ -608,6 +610,7 @@ function render(d) {
     const reason = (typeof d.priceChange1h === 'number' && d.priceChange1h <= -50) ? 'chute de prix de ' + Math.abs(d.priceChange1h) + '% déjà en cours'
       : (d.market.liquidityUsd > 0 && d.market.liquidityUsd < 2000) ? 'liquidité déjà vidée ($' + d.market.liquidityUsd.toLocaleString('fr') + ')'
       : (d.market.holders > 0 && d.market.holders <= 3) ? 'pas encore de marché réel (' + d.market.holders + ' détenteur(s))'
+      : d.compoundYoungRisk ? 'profil de rug classique (jeune + peu de détenteurs + wallet dominant)'
       : 'signal critique confirmé';
     capNotes.push('plafonné à 10 (' + reason + ')');
   }
