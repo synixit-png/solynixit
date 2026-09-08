@@ -563,7 +563,7 @@ function render(d) {
   document.getElementById('creatorRows').innerHTML = [
     { k: 'Rugs antérieurs', v: d.creator.prevRugs === null ? 'Inconnu' : d.creator.prevRugs === 0 ? 'Aucun' : d.creator.prevRugs + ' détecté(s)', c: d.creator.prevRugs === null ? '' : d.creator.prevRugs > 0 ? 'r' : 'c' },
     { k: 'Âge du token', v: d.creator.walletAge, c: '' },
-    { k: 'Dev a vendu', v: d.creator.devSoldPct === null ? 'Inconnu' : d.creator.devSoldPct + '%', c: d.creator.devSoldPct === null ? '' : d.creator.devSoldPct > 50 ? 'r' : d.creator.devSoldPct > 20 ? 'a' : 'c' },
+    { k: 'Créateur détient', v: d.creator.creatorHoldingPct === null ? 'Hors top holders' : d.creator.creatorHoldingPct + '%', c: d.creator.creatorHoldingPct === null ? '' : d.creator.creatorHoldingPct >= 10 ? 'r' : d.creator.creatorHoldingPct >= 3 ? 'a' : 'c' },
     { k: 'Wallets liés', v: d.creator.linkedWallets === null ? 'Inconnu' : d.creator.linkedWallets + ' détecté(s)', c: d.creator.linkedWallets === null ? '' : d.creator.linkedWallets > 2 ? 'r' : '' },
   ].map(r => '<div class="drow"><span class="dk">' + r.k + '</span><span class="dv ' + r.c + '">' + r.v + '</span></div>').join('');
   document.getElementById('marketRows').innerHTML = [
@@ -618,7 +618,7 @@ function genThread() {
     "J'ai analysé " + name + " " + sym + " avec mon scanner on-chain.\n\nScore de risque : " + s + "/100\n" + (rf.length > 0 ? rf.length + " signaux critiques ⚠" : "Signaux positifs ✅") + "\n\nVoici ce que j'ai trouvé 🧵",
     rf.length > 0 ? "🚨 Signal critique #1 : " + rf[0].name + "\n\n" + rf[0].bad + "\n\n→ " + rf[0].impact : "✅ " + d.signals.filter(x => x.status === 'ok')[0]?.name + "\n\n" + d.signals.filter(x => x.status === 'ok')[0]?.good,
     rf.length > 1 ? "🚨 Signal critique #2 : " + rf[1].name + "\n\n" + rf[1].bad + "\n\n→ " + rf[1].impact : "📊 " + d.market.holders.toLocaleString('fr') + " holders\nTop 10 = " + d.market.top10pct + "%\n\n" + (d.market.top10pct < 25 ? "Bien distribué ✅" : "Concentration élevée ⚠"),
-    "📋 Créateur\n\nRugs : " + (d.creator.prevRugs === null ? "Inconnu" : d.creator.prevRugs === 0 ? "Aucun ✅" : d.creator.prevRugs + " 🚨") + "\nDev vendu : " + (d.creator.devSoldPct === null ? "Inconnu" : d.creator.devSoldPct + "%") + "\nRéputation : " + d.creator.reputationScore + "/100 — " + d.creator.reputationLabel,
+    "📋 Créateur\n\nRugs : " + (d.creator.prevRugs === null ? "Inconnu" : d.creator.prevRugs === 0 ? "Aucun ✅" : d.creator.prevRugs + " 🚨") + "\nCréateur détient : " + (d.creator.creatorHoldingPct === null ? "Hors top holders" : d.creator.creatorHoldingPct + "%") + "\nRéputation : " + d.creator.reputationScore + "/100 — " + d.creator.reputationLabel,
     "💧 Marché\n\nLiquidité : $" + d.market.liquidityUsd.toLocaleString('fr') + "\nMcap : $" + d.market.mcap.toLocaleString('fr') + "\nVolume 24h : $" + d.market.volume24h.toLocaleString('fr'),
     "📊 Verdict\n\nScore : " + s + "/100 (confiance : " + d.confidence + "/100) — " + (s >= 65 ? "Risque faible" : s >= 40 ? "Risque modéré" : "Danger") + "\nPosition max : " + d.recommendation.positionSize,
     "Ma checklist :\n\n✅ Liquidité lockée ?\n✅ Mint authority révoquée ?\n✅ Top 10 < 25% ?\n✅ Créateur propre ?\n✅ Dev n'a pas massivement vendu ?\n\nSi une case manque — je n'entre pas.",
