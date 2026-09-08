@@ -181,6 +181,11 @@ function buildAnalysis(address, token, security, dex, insiders) {
     : ageHours < 168 ? { ok: 1500, warn: 300 }
     : { ok: 3000, warn: 500 };
   const holderStatus = holders > holderBar.ok ? 'ok' : holders > holderBar.warn ? 'warn' : 'bad';
+  // A handful of holders isn't "risky distribution" on a sliding scale — it's
+  // not a real market yet. Buying means you'd likely be the first and only
+  // real counterparty. This is a verifiable current fact, not a prediction,
+  // so it gets the same hard cap treatment as an already-confirmed crash.
+  const noRealMarket = holders > 0 && holders <= 3;
   const holderAgeNote = ageHours === null ? '' : ' (token âgé de ' + ageLabel + ')';
 
   // "No rugs found" is only meaningful if the wallet has existed long enough
@@ -244,7 +249,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
   // risk prediction anymore, it's an already-observed outcome. A locked LP
   // and revoked authorities don't matter if the price already collapsed, and
   // a near-empty pool (however "locked") means the money is already gone.
-  const crashCap = (priceCrashed || liquidityTooThin) ? 10 : null;
+  const crashCap = (priceCrashed || liquidityTooThin || noRealMarket) ? 10 : null;
   const crashCapped = crashCap !== null && score > crashCap;
   if (crashCap !== null) score = Math.min(score, crashCap);
   score = Math.round(Math.max(0, Math.min(100, score)));

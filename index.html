@@ -541,11 +541,14 @@ function render(d) {
   document.getElementById('scoreVerdict').textContent = s >= 65 ? 'Risque faible' : s >= 40 ? 'Risque modéré' : 'Danger — Risque élevé';
   const priceCrashedNow = typeof d.priceChange1h === 'number' && d.priceChange1h <= -50;
   const liquidityGone = d.market.liquidityUsd > 0 && d.market.liquidityUsd < 2000;
+  const noRealMarketNow = d.market.holders > 0 && d.market.holders <= 3;
   document.getElementById('scoreDesc').textContent = d.crashCapped
     ? (priceCrashedNow
         ? '🔴 Le prix a déjà chuté de ' + Math.abs(d.priceChange1h) + '% sur la dernière heure — un dump est probablement déjà en cours, quels que soient les autres signaux. Ce n\'est plus une prédiction, c\'est déjà arrivé.'
         : liquidityGone
         ? '🔴 La pool ne contient que $' + d.market.liquidityUsd.toLocaleString('fr') + ' — même "lockée", il n\'y a quasiment plus rien à protéger. La liquidité a déjà été vidée.'
+        : noRealMarketNow
+        ? '🔴 Seulement ' + d.market.holders + ' détenteur(s) — ce n\'est pas encore un marché réel, juste toi et éventuellement le créateur. Impossible de juger un risque de distribution qui n\'existe pas encore.'
         : '🔴 Signal critique confirmé — score plafonné par prudence, quels que soient les autres signaux.')
     : s >= 65 ? 'Les signaux principaux sont positifs. Reste vigilant et gère ta taille de position.' : s >= 40 ? 'Plusieurs signaux ambigus. Limite ton exposition et place un stop loss strict.' : 'Signaux critiques détectés. Fort risque de rug pull ou manipulation.';
   const rf = d.signals.filter(x => x.status === 'bad');
@@ -604,6 +607,7 @@ function render(d) {
   if (d.crashCapped) {
     const reason = (typeof d.priceChange1h === 'number' && d.priceChange1h <= -50) ? 'chute de prix de ' + Math.abs(d.priceChange1h) + '% déjà en cours'
       : (d.market.liquidityUsd > 0 && d.market.liquidityUsd < 2000) ? 'liquidité déjà vidée ($' + d.market.liquidityUsd.toLocaleString('fr') + ')'
+      : (d.market.holders > 0 && d.market.holders <= 3) ? 'pas encore de marché réel (' + d.market.holders + ' détenteur(s))'
       : 'signal critique confirmé';
     capNotes.push('plafonné à 10 (' + reason + ')');
   }
