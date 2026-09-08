@@ -539,7 +539,9 @@ function render(d) {
   confEl.textContent = 'Confiance : ' + d.confidence + '/100';
   confEl.className = 'score-confidence' + (d.confidence < 50 ? ' low' : '');
   document.getElementById('scoreVerdict').textContent = s >= 65 ? 'Risque faible' : s >= 40 ? 'Risque modéré' : 'Danger — Risque élevé';
-  document.getElementById('scoreDesc').textContent = s >= 65 ? 'Les signaux principaux sont positifs. Reste vigilant et gère ta taille de position.' : s >= 40 ? 'Plusieurs signaux ambigus. Limite ton exposition et place un stop loss strict.' : 'Signaux critiques détectés. Fort risque de rug pull ou manipulation.';
+  document.getElementById('scoreDesc').textContent = d.ageCapped
+    ? '⏱ Token trop récent (' + (d.ageHours < 1 ? 'moins d\'1h' : d.ageHours + 'h') + ') pour être jugé fiable, quels que soient ses autres signaux — la fenêtre de pump & dump la plus dangereuse n\'est pas encore passée. Score plafonné par prudence.'
+    : s >= 65 ? 'Les signaux principaux sont positifs. Reste vigilant et gère ta taille de position.' : s >= 40 ? 'Plusieurs signaux ambigus. Limite ton exposition et place un stop loss strict.' : 'Signaux critiques détectés. Fort risque de rug pull ou manipulation.';
   const rf = d.signals.filter(x => x.status === 'bad');
   const ok = d.signals.filter(x => x.status === 'ok');
   document.getElementById('flagRow').innerHTML = [
@@ -591,7 +593,10 @@ function render(d) {
     return '<div class="explain-row"><div><div class="explain-name">' + sig.name + '</div><div class="explain-note">' + note + '</div></div><div class="explain-pts ' + cls + '">' + pts + ' / ' + sig.weight + '</div></div>';
   }).join('');
   document.getElementById('explainRows').innerHTML = explainRows;
-  document.getElementById('explainFormula').textContent = 'Score = somme des points gagnés ÷ ' + knownWeight + ' (poids des signaux connus) × 100' + (d.scoreCapped ? ' — puis plafonné à 35 (signal éliminatoire négatif détecté).' : '.');
+  const capNotes = [];
+  if (d.scoreCapped) capNotes.push('plafonné à 35 (signal éliminatoire négatif détecté)');
+  if (d.ageCapped) capNotes.push('plafonné car le token est trop récent (' + (d.ageHours < 1 ? 'moins d\'1h' : d.ageHours + 'h') + ')');
+  document.getElementById('explainFormula').textContent = 'Score = somme des points gagnés ÷ ' + knownWeight + ' (poids des signaux connus) × 100' + (capNotes.length ? ' — puis ' + capNotes.join(' et ') + '.' : '.');
   const reco = d.recommendation;
   document.getElementById('recoCards').innerHTML = [
     { l: 'Position max', v: reco.positionSize, col: s >= 65 ? 'var(--cyan)' : s >= 40 ? 'var(--amber)' : 'var(--red)' },

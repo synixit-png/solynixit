@@ -210,6 +210,14 @@ function buildAnalysis(address, token, security, dex, insiders) {
   });
   let score = knownWeight > 0 ? Math.round((scoreSum / knownWeight) * 100) : 0;
   if (hasEliminatory) score = Math.min(score, 35);
+  // A brand-new token hasn't survived any real time in the market yet — good
+  // structural signals (mint/freeze revoked, etc.) can't make up for that, since
+  // most pump-and-dumps happen in exactly this window. Cap independently of
+  // every other signal, however clean they look: a 10-second-old token must
+  // never read as "Risque faible", and should usually read as outright danger.
+  const ageCap = ageHours === null ? null : ageHours < 1 ? 35 : ageHours < 24 ? 64 : null;
+  const ageCapped = ageCap !== null && score > ageCap;
+  if (ageCap !== null) score = Math.min(score, ageCap);
   score = Math.round(Math.max(0, Math.min(100, score)));
 
   let reputationScore = 100;
@@ -225,7 +233,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
     : reputationScore >= 70 ? 'Fiable' : reputationScore >= 40 ? 'Suspect' : 'Dangereux';
 
   return {
-    address, name, symbol, score, confidence, scoreCapped: hasEliminatory, signals,
+    address, name, symbol, score, confidence, scoreCapped: hasEliminatory, ageCapped, ageHours, signals,
     creator: { address: creatorAddress, prevRugs, walletAge: ageLabel, devSoldPct, linkedWallets, reputationScore, reputationLabel },
     market: { holders, top10pct, liquidityUsd: Math.round(liquidityUsd), volume24h: Math.round(volume24h), mcap: Math.round(mcap), age: ageLabel, liquidityLocked },
     recommendation: {
