@@ -164,6 +164,17 @@ function buildAnalysis(address, token, security, dex, insiders) {
   const holderStatus = holders > holderBar.ok ? 'ok' : holders > holderBar.warn ? 'warn' : 'bad';
   const holderAgeNote = ageHours === null ? '' : ' (token âgé de ' + ageLabel + ')';
 
+  // "No rugs found" is only meaningful if the wallet has existed long enough
+  // to have had a realistic chance to rug something. A 0-hour-old wallet
+  // trivially has zero rug history — that's an empty track record, not a
+  // clean one, and must not score as if it were the same thing.
+  const creatorTooYoung = ageHours !== null && ageHours < 24;
+  const creatorKnown = prevRugs !== null;
+  const creatorStatus = !creatorKnown ? 'warn' : prevRugs > 0 ? 'bad' : creatorTooYoung ? 'warn' : 'ok';
+  const creatorBadText = !creatorKnown ? fetchFailedMsg
+    : prevRugs > 0 ? prevRugs + ' rug pull(s) antérieur(s) sur ce wallet.'
+    : "Wallet trop récent (" + ageLabel + ") pour avoir un historique significatif — l'absence de rug n'est pas encore prouvée, juste pas encore démentie.";
+
   // `known` marks whether we actually have data for this signal, separate from
   // `status`. A signal can be 'warn' for two very different reasons: genuinely
   // ambiguous data we DO have (e.g. top10pct at 32%, known=true) vs data we
@@ -176,7 +187,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
     { name: 'Distribution des holders', known: true, status: holderStatus, good: holders.toLocaleString('fr') + ' holders' + holderAgeNote + ' — bonne distribution pour son âge.', bad: holders.toLocaleString('fr') + ' holders seulement' + holderAgeNote + ' — manipulation facile.', impact: 'Peu de holders = prix contrôlé par quelques wallets.', weight: 12, eliminatory: false },
     { name: 'Concentration top 10 wallets', known: top10pct !== null, status: top10pct === null ? 'warn' : top10pct < 25 ? 'ok' : top10pct < 50 ? 'warn' : 'bad', good: 'Top 10 = ' + top10pct + '% — bien distribué.', bad: top10pct === null ? 'Données non disponibles.' : 'Top 10 = ' + top10pct + '% — dump massif possible.', impact: "Si ces wallets vendent ensemble, le prix s'effondre.", weight: 14, eliminatory: false },
     { name: 'Comportement du développeur', known: false, status: 'warn', good: 'Dev a vendu peu de sa position — reste engagé.', bad: notTrackedMsg, impact: "Un dev qui vend massivement n'a plus d'intérêt à développer.", weight: 12, eliminatory: false },
-    { name: 'Historique du créateur', known: prevRugs !== null, status: prevRugs === null ? 'warn' : prevRugs === 0 ? 'ok' : 'bad', good: 'Aucun rug pull antérieur détecté.', bad: prevRugs === null ? fetchFailedMsg : prevRugs + ' rug pull(s) antérieur(s) sur ce wallet.', impact: 'Un serial rugger a 90% de chances de recommencer.', weight: 8, eliminatory: true },
+    { name: 'Historique du créateur', known: creatorKnown, status: creatorStatus, good: 'Aucun rug pull antérieur détecté.', bad: creatorBadText, impact: 'Un serial rugger a 90% de chances de recommencer.', weight: 8, eliminatory: true },
     { name: 'Coordination de wallets', known: linkedWallets !== null, status: linkedWallets === null ? 'warn' : linkedWallets > 3 ? 'bad' : linkedWallets > 1 ? 'warn' : 'ok', good: 'Pas de coordination détectée.', bad: linkedWallets === null ? notTrackedMsg : linkedWallets + ' wallets liés — pump & dump possible.', impact: 'Wallets coordonnés = manipulation organisée.', weight: 4, eliminatory: false },
   ];
 
@@ -215,7 +226,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
 
   return {
     address, name, symbol, score, confidence, scoreCapped: hasEliminatory, signals,
-    creator: { address: creatorAddress, prevRugs, prevTokens: linkedWallets, walletAge: ageLabel, devSoldPct, linkedWallets, reputationScore, reputationLabel },
+    creator: { address: creatorAddress, prevRugs, walletAge: ageLabel, devSoldPct, linkedWallets, reputationScore, reputationLabel },
     market: { holders, top10pct, liquidityUsd: Math.round(liquidityUsd), volume24h: Math.round(volume24h), mcap: Math.round(mcap), age: ageLabel, liquidityLocked },
     recommendation: {
       positionSize: score >= 65 ? '2-4% du portfolio' : score >= 40 ? '0.5-1% max' : '0% — ne pas entrer',
