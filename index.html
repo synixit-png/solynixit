@@ -536,7 +536,7 @@ function render(d) {
   banner.className = 'score-hero ' + cls;
   document.getElementById('scoreNum').textContent = s;
   const confEl = document.getElementById('scoreConfidence');
-  confEl.textContent = 'Confiance : ' + d.confidence + '/100';
+  confEl.textContent = 'Confiance : ' + d.confidence + '/100' + (d.ageDiscounted ? ' (token récent, pas encore testé dans le temps)' : '');
   confEl.className = 'score-confidence' + (d.confidence < 50 ? ' low' : '');
   document.getElementById('scoreVerdict').textContent = s >= 65 ? 'Risque faible' : s >= 40 ? 'Risque modéré' : 'Danger — Risque élevé';
   const priceCrashedNow = typeof d.priceChange1h === 'number' && d.priceChange1h <= -50;
@@ -547,8 +547,6 @@ function render(d) {
         : liquidityGone
         ? '🔴 La pool ne contient que $' + d.market.liquidityUsd.toLocaleString('fr') + ' — même "lockée", il n\'y a quasiment plus rien à protéger. La liquidité a déjà été vidée.'
         : '🔴 Signal critique confirmé — score plafonné par prudence, quels que soient les autres signaux.')
-    : d.ageCapped
-    ? '⏱ Token trop récent (' + (d.ageHours < 1 ? 'moins d\'1h' : d.ageHours + 'h') + ') pour être jugé fiable, quels que soient ses autres signaux — la fenêtre de pump & dump la plus dangereuse n\'est pas encore passée. Score plafonné par prudence.'
     : s >= 65 ? 'Les signaux principaux sont positifs. Reste vigilant et gère ta taille de position.' : s >= 40 ? 'Plusieurs signaux ambigus. Limite ton exposition et place un stop loss strict.' : 'Signaux critiques détectés. Fort risque de rug pull ou manipulation.';
   const rf = d.signals.filter(x => x.status === 'bad');
   const ok = d.signals.filter(x => x.status === 'ok');
@@ -603,7 +601,6 @@ function render(d) {
   document.getElementById('explainRows').innerHTML = explainRows;
   const capNotes = [];
   if (d.scoreCapped) capNotes.push('plafonné à 35 (signal éliminatoire négatif détecté)');
-  if (d.ageCapped) capNotes.push('plafonné car le token est trop récent (' + (d.ageHours < 1 ? 'moins d\'1h' : d.ageHours + 'h') + ')');
   if (d.crashCapped) {
     const reason = (typeof d.priceChange1h === 'number' && d.priceChange1h <= -50) ? 'chute de prix de ' + Math.abs(d.priceChange1h) + '% déjà en cours'
       : (d.market.liquidityUsd > 0 && d.market.liquidityUsd < 2000) ? 'liquidité déjà vidée ($' + d.market.liquidityUsd.toLocaleString('fr') + ')'

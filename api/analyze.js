@@ -219,7 +219,17 @@ function buildAnalysis(address, token, security, dex, insiders) {
   // score built on solid data, and the UI needs both.
   const totalWeight = signals.reduce((sum, s) => sum + s.weight, 0);
   const knownWeight = signals.filter(s => s.known).reduce((sum, s) => sum + s.weight, 0);
-  const confidence = totalWeight > 0 ? Math.round((knownWeight / totalWeight) * 100) : 0;
+  const dataConfidence = totalWeight > 0 ? (knownWeight / totalWeight) : 0;
+  // A brand-new token hasn't been tested by real market behavior yet — that's
+  // a confidence problem, not a verdict problem. Suppressing the SCORE itself
+  // for every young token defeats the tool's actual purpose (telling a good
+  // new project apart from a bad one) by flattening both into "Danger"
+  // regardless of how clean or dirty their real signals are. Instead, age
+  // discounts CONFIDENCE: a young token with genuinely good signals can still
+  // score high, but the confidence attached to that score is honestly lower
+  // until it's survived some real time in the market.
+  const ageConfidenceFactor = ageHours === null ? 1 : ageHours < 1 ? 0.5 : ageHours < 24 ? 0.8 : 1;
+  const confidence = Math.round(dataConfidence * ageConfidenceFactor * 100);
 
   let scoreSum = 0, hasEliminatory = false;
   signals.forEach(s => {
@@ -230,14 +240,6 @@ function buildAnalysis(address, token, security, dex, insiders) {
   });
   let score = knownWeight > 0 ? Math.round((scoreSum / knownWeight) * 100) : 0;
   if (hasEliminatory) score = Math.min(score, 35);
-  // A brand-new token hasn't survived any real time in the market yet — good
-  // structural signals (mint/freeze revoked, etc.) can't make up for that, since
-  // most pump-and-dumps happen in exactly this window. Cap independently of
-  // every other signal, however clean they look: a 10-second-old token must
-  // never read as "Risque faible", and should usually read as outright danger.
-  const ageCap = ageHours === null ? null : ageHours < 1 ? 35 : ageHours < 24 ? 64 : null;
-  const ageCapped = ageCap !== null && score > ageCap;
-  if (ageCap !== null) score = Math.min(score, ageCap);
   // A confirmed ongoing crash outweighs every structural check — this isn't a
   // risk prediction anymore, it's an already-observed outcome. A locked LP
   // and revoked authorities don't matter if the price already collapsed, and
@@ -260,7 +262,7 @@ function buildAnalysis(address, token, security, dex, insiders) {
     : reputationScore >= 70 ? 'Fiable' : reputationScore >= 40 ? 'Suspect' : 'Dangereux';
 
   return {
-    address, name, symbol, score, confidence, scoreCapped: hasEliminatory, ageCapped, crashCapped, ageHours, priceChange1h, signals,
+    address, name, symbol, score, confidence, scoreCapped: hasEliminatory, ageDiscounted: ageConfidenceFactor < 1, crashCapped, ageHours, priceChange1h, signals,
     creator: { address: creatorAddress, prevRugs, walletAge: ageLabel, devSoldPct, creatorHoldingPct, linkedWallets, reputationScore, reputationLabel },
     market: { holders, top10pct, liquidityUsd: Math.round(liquidityUsd), volume24h: Math.round(volume24h), mcap: Math.round(mcap), age: ageLabel, liquidityLocked },
     recommendation: {
